@@ -68,7 +68,7 @@ const LoginPage = ({ onLogin }) => {
     >
       <div>
         <h1 style={{ textAlign: "center", marginBottom: "20px" }}>
-          Login Page
+          고소장 작성하기
         </h1>
         <img
           src={facebookLoginImage}
