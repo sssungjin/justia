@@ -61,7 +61,6 @@ npm run start
 
 ```
 
-![image](https://github.com/user-attachments/assets/97e97bc2-ecc6-4ed7-9bdf-706b98515e94)
-
-
 This will start the development server. Once it's up and running, you can open your browser and go to `http://localhost:3000` to see the application.
+
+![image](https://github.com/user-attachments/assets/97e97bc2-ecc6-4ed7-9bdf-706b98515e94)
