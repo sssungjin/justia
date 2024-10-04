@@ -11,28 +11,28 @@
   border-radius: 8px;
   background-color: #ffffff;
   overflow: hidden;
-  margin-top: 10px;
   margin-bottom: 10px;
 }
 
-/* 채팅 메시지 영역 */
 .chat-messages {
+  border: 1px solid #e6e6e6;
+  border-radius: 6px;
+  background-color: #f1f1f1;
   flex-grow: 1;
   padding: 20px;
   overflow-y: auto;
+  margin: 8px;
 }
 
-/* 에디터 래퍼 */
 .editor-wrapper {
   flex-grow: 1;
   overflow-y: auto;
   padding: 0 20px 20px 20px;
 }
 
-/* 스크롤바 스타일 */
 .chat-messages::-webkit-scrollbar,
 .editor-wrapper::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 .chat-messages::-webkit-scrollbar-track,
@@ -170,4 +170,16 @@
 
 .rdw-option-active {
   background: #f1f1f1;
+}
+
+.custom-dropdown-toggle {
+  background-color: #f8f9fa !important;
+  color: #333 !important;
+  border: 1px solid #ced4da !important;
+  box-shadow: none !important;
+}
+
+.custom-dropdown-toggle:hover,
+.custom-dropdown-toggle:focus {
+  background-color: #f3f5f7 !important;
 }
