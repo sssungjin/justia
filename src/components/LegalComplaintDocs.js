@@ -229,13 +229,11 @@ const LegalComplaintDocs = () => {
 
   return (
     <Container fluid className="vh-100  flex-column">
-      {userInfo && (
-        <Header
-          userName={userInfo.name}
-          userEmail={userInfo.email}
-          onLogout={handleLogout}
-        />
-      )}
+      <Header
+        userName={userInfo.name}
+        userEmail={userInfo.email}
+        onLogout={handleLogout}
+      />
       <Row className="flex-grow-1">
         <Col md="6" className="d-flex flex-column p-3">
           <div className="chat-outer-container d-flex flex-column">
@@ -313,7 +311,7 @@ const LegalComplaintDocs = () => {
               color="secondary"
               onClick={() => fileInputRef.current.click()}
               style={{ marginLeft: "5px" }}
-              disabled={messageIndex === 0}
+              disabled={messageIndex < 14}
             >
               <Upload size={20} />
             </Button>
@@ -322,7 +320,7 @@ const LegalComplaintDocs = () => {
               innerRef={fileInputRef}
               style={{ display: "none" }}
               onChange={handleFileUpload}
-              disabled={messageIndex === 0}
+              disabled={messageIndex < 14}
             />
           </InputGroup>
         </Col>
@@ -408,11 +406,12 @@ const LegalComplaintDocs = () => {
                 }}
               />
             </div>
-            <div className="d-flex justify-content-center mb-1">
+            <div className="d-flex justify-content-center mb-2">
               <Button
                 color="secondary"
                 onClick={() => setIsSignatureModalOpen(true)}
                 className="mx-2"
+                disabled={messageIndex < 14}
               >
                 Sign
               </Button>
@@ -420,13 +419,15 @@ const LegalComplaintDocs = () => {
                 color="success"
                 onClick={() => setIsPaymentModalOpen(true)}
                 className="mx-2"
+                disabled={messageIndex < 14}
               >
                 Payment
               </Button>
               <Button
-                color="info"
+                color="primary"
                 onClick={() => setIsShareModalOpen(true)}
                 className="mx-2"
+                disabled={messageIndex < 14}
               >
                 Share
               </Button>
