@@ -7,7 +7,12 @@ import {
   InputGroup,
   Container,
   CardTitle,
+  Dropdown,
+  DropdownToggle,
+  DropdownMenu,
+  DropdownItem,
 } from "reactstrap";
+import { ChevronDown } from "lucide-react";
 import { Upload } from "lucide-react";
 import { Editor } from "react-draft-wysiwyg";
 import { EditorState, ContentState } from "draft-js";
@@ -23,6 +28,9 @@ const LegalComplaintDocs = () => {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
   const [editorState, setEditorState] = useState(EditorState.createEmpty());
+  const [webSocket, setWebSocket] = useState(null);
+  const [category, setCategory] = useState("성매매 피해 사기");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -30,38 +38,160 @@ const LegalComplaintDocs = () => {
 
   const chatAreaRef = useRef(null);
   const fileInputRef = useRef(null);
+  const dropdownRef = useRef(null);
+
   const [userInfo, setUserInfo] = useState(null);
   const { logout } = useAuth();
   const navigate = useNavigate();
+
+  const [messageIndex, setMessageIndex] = useState(0);
+  const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
+
+  const prev_actions = [
+    "범죄 수법",
+    "피고소인 신분",
+    "고소인 신분",
+    "피고소인을 알게된 경위",
+    "날짜",
+    "장소",
+    "거래 방법",
+    "거짓말의 내용",
+    "재산 마련 방법",
+    "재산의 처분 방법",
+    "거짓임을 깨닫게 된 계기",
+    "다른 피해사실",
+    "고소 이유",
+    "다른 민형사",
+  ];
+
+  const questions = [
+    "",
+    "피고소인의 직업이나 신분에 대해 알려주세요",
+    "고객님의 신분도 알려주세요",
+    "처음에 피고소인은 어떻게 알게 되었습니까?",
+    "사건이 일어난 날짜는 언제인가요?",
+    "사건이 일어난 장소는 어디인가요?",
+    "어떤 방식으로 서비스를 받고 돈을 지불하는 걸로 결정했었나요?",
+    "피고소인이 뭐라고 거짓말을 하며 돈을 입금하라고 했습니까?",
+    "재산은 어떻게 마련했습니까?",
+    "재산의 처분은 어떻게 하였습니까?",
+    "피고소인이 거짓말을 해왔다는 걸 알게 된 계기는 무엇입니까?",
+    "다른 피해 사실도 있습니까?",
+    "고소하게 된 동기는 무엇입니까?",
+    "사건과 관련하여 민형사를 진행하고 있습니까?",
+    "고소장을 작성해 드리겠습니다. 잠시만 기다려주세요.",
+  ];
 
   useEffect(() => {
     const storedUserInfo = sessionStorage.getItem("userInfo");
     if (storedUserInfo) {
       setUserInfo(JSON.parse(storedUserInfo));
     }
+
+    // WebSocket 연결
+    const wsUrl = `ws://localhost:8080/webchat/dial/null`;
+    const newWebSocket = new WebSocket(wsUrl);
+
+    newWebSocket.onopen = () => {
+      console.log("WebSocket connected");
+    };
+
+    newWebSocket.onmessage = (event) => {
+      handleIncomingMessage(event.data);
+    };
+
+    newWebSocket.onclose = () => {
+      console.log("WebSocket disconnected");
+    };
+
+    newWebSocket.onerror = (error) => {
+      console.error("WebSocket error:", error);
+    };
+
+    setWebSocket(newWebSocket);
+
+    return () => {
+      if (newWebSocket) {
+        newWebSocket.close();
+      }
+    };
   }, []);
+
+  const handleIncomingMessage = (data) => {
+    try {
+      const talk = JSON.parse(data);
+      console.log(talk);
+      if (talk.error) {
+        console.error("Server error:", talk.error);
+        return;
+      }
+
+      if (talk.action === "종료") {
+        console.log("대화가 종료되었습니다.");
+      } else if (messageIndex < questions.length) {
+        // messageIndex가 업데이트된 후에 다음 질문을 추가하기 위해 setMessageIndex의 콜백에서 처리
+        setMessageIndex((prevIndex) => {
+          const newIndex = prevIndex + 1;
+          setMessages((prevMessages) => [
+            ...prevMessages,
+            { type: "ai", content: questions[newIndex] }, // 증가된 인덱스 사용
+          ]);
+          return newIndex; // 인덱스를 증가시킨 값을 반환
+        });
+      }
+
+      setIsWaitingForResponse(false);
+    } catch (e) {
+      console.error("Error parsing message:", e);
+      setIsWaitingForResponse(false);
+    }
+  };
+
+  const sendWebSocketMessage = (message) => {
+    const talk = {
+      mode: "delator",
+      id: userInfo ? userInfo.name : "unknown",
+      index: messageIndex.toString(),
+      reply: message,
+      locale: navigator.language,
+    };
+
+    if (webSocket && webSocket.readyState === WebSocket.OPEN) {
+      webSocket.send(JSON.stringify(talk));
+      console.log("Sent message:", talk);
+      setIsWaitingForResponse(true);
+    } else {
+      console.error("WebSocket is not connected");
+    }
+  };
+
+  const handleSendMessage = () => {
+    if (inputMessage.trim() === "" || isWaitingForResponse) return;
+
+    const newMessage = { type: "user", content: inputMessage };
+    setMessages((prevMessages) => [...prevMessages, newMessage]);
+
+    sendWebSocketMessage(inputMessage);
+    setInputMessage("");
+  };
+
+  const toggleDropdown = () => {
+    setDropdownOpen((prevState) => !prevState);
+    if (!dropdownOpen && dropdownRef.current) {
+      dropdownRef.current.focus();
+    }
+  };
+
+  const handleCategorySelect = (selectedCategory) => {
+    setCategory(selectedCategory);
+    setMessages([{ type: "user", content: `${selectedCategory}` }]);
+    sendWebSocketMessage(selectedCategory);
+  };
 
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
-
-  const aiResponses = [
-    "고소인의 이름이 어떻게 되나요?",
-    "고소인의 신분이 어떻게 되나요?",
-    "고소인의 주민등록번호를 말씀해 주세요.",
-    "고소인의 전화번호를 말씀해 주세요.",
-    "고소인의 주소를 말씀해 주세요.",
-    "고소인의 기타 참고 사항을 말씀해 주세요.",
-    "피고소인의 이름이 어떻게 되나요?",
-    "피고소인의 신분이 어떻게 되나요?",
-    "피고소인의 주민등록번호를 말씀해 주세요.",
-    "피고소인의 전화번호를 말씀해 주세요.",
-    "피고소인의 주소를 말씀해 주세요.",
-    "피고소인의 기타 참고 사항을 말씀해 주세요.",
-    "고소 내용을 구체적으로 말씀해 주세요.",
-    '분석 결과 고소 취지는 "이 몸이 죽고 죽어 일백번 고쳐죽어, 백골이 진토외어 넋이라도 있고없고 님향한 일편단심이야 가실 줄이 있으랴" 입니다.',
-  ];
 
   useEffect(() => {
     if (chatAreaRef.current) {
@@ -74,34 +204,7 @@ const LegalComplaintDocs = () => {
       "강제추행 고소장\n\n고소인:\n성명:\n신분:\n주민등록번호:\n전화번호:\n주소:\n기타:\n\n피고소인:\n성명:\n신분:\n주민등록번호:\n전화번호:\n주소:\n기타:\n\n고소취지:\n\n"
     );
     setEditorState(EditorState.createWithContent(initialContent));
-
-    setMessages([
-      { type: "user", content: "성매매 유도 사기로 고소하고 싶어요" },
-      { type: "ai", content: "고소인의 이름이 어떻게 되나요?" },
-    ]);
   }, []);
-
-  const handleSendMessage = () => {
-    if (inputMessage.trim() === "") return;
-
-    const newMessage = { type: "user", content: inputMessage };
-    const updatedMessages = [...messages, newMessage];
-    setMessages(updatedMessages);
-    setInputMessage("");
-
-    const currentIndex = Math.floor((updatedMessages.length - 2) / 2);
-    const nextIndex = currentIndex;
-
-    if (currentIndex < aiResponses.length) {
-      setTimeout(() => {
-        const aiResponse = aiResponses[nextIndex + 1];
-        setMessages((prevMessages) => [
-          ...prevMessages,
-          { type: "ai", content: aiResponse },
-        ]);
-      }, 200);
-    }
-  };
 
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
@@ -125,7 +228,7 @@ const LegalComplaintDocs = () => {
   };
 
   return (
-    <Container fluid className="vh-100 d-flex flex-column">
+    <Container fluid className="vh-100  flex-column">
       {userInfo && (
         <Header
           userName={userInfo.name}
@@ -135,31 +238,60 @@ const LegalComplaintDocs = () => {
       )}
       <Row className="flex-grow-1">
         <Col md="6" className="d-flex flex-column p-3">
-          <div className="chat-container flex-grow-1 mb-3 mt-2">
-            <div className="chat-messages overflow-auto" ref={chatAreaRef}>
-              {messages.map((msg, index) => (
-                <div
-                  key={index}
-                  className={`mb-2 ${
-                    msg.type === "user" ? "text-right" : "text-left"
-                  }`}
+          <div className="chat-outer-container d-flex flex-column">
+            <div className="chat-container flex-grow-1 mt-2">
+              <Dropdown
+                isOpen={dropdownOpen}
+                toggle={toggleDropdown}
+                className="mt-2 ml-2"
+              >
+                <DropdownToggle
+                  caret
+                  className="w-80 text-left d-flex justify-content-between align-items-center custom-dropdown-toggle"
                 >
-                  {msg.type === "user" ? (
-                    <div className="user-bubble">
-                      <div className="font-weight-bold">고소인</div>
-                      <div>{msg.content}</div>
-                    </div>
-                  ) : (
-                    <div className="justia-bubble">
-                      <div className="font-weight-bold">Justia</div>
-                      <div>{msg.content}</div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                  {category} <ChevronDown size={20} />
+                </DropdownToggle>
+                <DropdownMenu className="w-80">
+                  <DropdownItem
+                    onClick={() => handleCategorySelect("성매매 피해 사기")}
+                  >
+                    성매매 피해 사기
+                  </DropdownItem>
+                  <DropdownItem
+                    onClick={() => handleCategorySelect("중고 거래 사기")}
+                  >
+                    중고 거래 사기
+                  </DropdownItem>
+                </DropdownMenu>
+              </Dropdown>
+              <div className="chat-messages overflow-auto" ref={chatAreaRef}>
+                {messages.map((msg, index) => (
+                  <div
+                    key={index}
+                    className={`mb-2 ${
+                      msg.type === "user" ? "text-right" : "text-left"
+                    }`}
+                  >
+                    {msg.type === "user" ? (
+                      <div className="user-bubble">
+                        <div className="font-weight-bold">
+                          고소인: {userInfo.name}
+                        </div>
+                        <div>{msg.content}</div>
+                      </div>
+                    ) : (
+                      <div className="justia-bubble">
+                        <div className="font-weight-bold">Justia</div>
+                        <div>{msg.content}</div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-          <InputGroup className="mb-1">
+
+          <InputGroup className="mb-1" disabled={messageIndex === 0}>
             <Input
               type="text"
               value={inputMessage}
@@ -167,11 +299,13 @@ const LegalComplaintDocs = () => {
               onKeyPress={handleKeyPress}
               placeholder="Type your message..."
               style={{ fontSize: "1.1rem" }}
+              disabled={messageIndex === 0}
             />
             <Button
               color="primary"
               onClick={handleSendMessage}
               style={{ marginLeft: "5px" }}
+              disabled={messageIndex === 0}
             >
               Send
             </Button>
@@ -179,6 +313,7 @@ const LegalComplaintDocs = () => {
               color="secondary"
               onClick={() => fileInputRef.current.click()}
               style={{ marginLeft: "5px" }}
+              disabled={messageIndex === 0}
             >
               <Upload size={20} />
             </Button>
@@ -187,6 +322,7 @@ const LegalComplaintDocs = () => {
               innerRef={fileInputRef}
               style={{ display: "none" }}
               onChange={handleFileUpload}
+              disabled={messageIndex === 0}
             />
           </InputGroup>
         </Col>
