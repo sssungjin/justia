@@ -3,13 +3,19 @@ import SignatureCanvas from "react-signature-canvas";
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button } from "reactstrap";
 import { X } from "lucide-react";
 
-const SignatureModal = ({ isOpen, toggle }) => {
-  const [signature, setSignature] = useState(null);
+const SignatureModal = ({
+  isOpen,
+  toggle,
+  setSignature,
+  addSignatureToEditor,
+}) => {
+  const [localSignature, setLocalSignature] = useState(null);
   const sigCanvasRef = useRef(null);
 
   const clearSignature = () => {
     if (sigCanvasRef.current) {
       sigCanvasRef.current.clear();
+      setLocalSignature(null);
       setSignature(null);
     }
   };
@@ -17,7 +23,15 @@ const SignatureModal = ({ isOpen, toggle }) => {
   const saveSignature = () => {
     if (sigCanvasRef.current && !sigCanvasRef.current.isEmpty()) {
       const dataURL = sigCanvasRef.current.toDataURL("image/png");
+      setLocalSignature(dataURL);
       setSignature(dataURL);
+    }
+  };
+
+  const addToDocument = () => {
+    if (localSignature) {
+      addSignatureToEditor(localSignature);
+      toggle();
     }
   };
 
@@ -35,8 +49,8 @@ const SignatureModal = ({ isOpen, toggle }) => {
       </ModalHeader>
       <ModalBody>
         <div className="border h-32 d-flex align-items-center justify-content-center mb-4">
-          {signature ? (
-            <img src={signature} alt="Signature" className="h-100" />
+          {localSignature ? (
+            <img src={localSignature} alt="Signature" className="h-100" />
           ) : (
             <SignatureCanvas
               ref={sigCanvasRef}
@@ -54,8 +68,19 @@ const SignatureModal = ({ isOpen, toggle }) => {
         <Button color="danger" onClick={clearSignature}>
           Clear Signature
         </Button>
-        <Button color="primary" onClick={saveSignature}>
+        <Button
+          color="primary"
+          onClick={saveSignature}
+          disabled={localSignature !== null}
+        >
           Save Signature
+        </Button>
+        <Button
+          color="success"
+          onClick={addToDocument}
+          disabled={localSignature === null}
+        >
+          Add to Document
         </Button>
       </ModalFooter>
     </Modal>
