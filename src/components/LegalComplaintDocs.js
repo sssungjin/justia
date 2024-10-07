@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Row,
   Col,
@@ -12,10 +12,17 @@ import {
   DropdownMenu,
   DropdownItem,
 } from "reactstrap";
-import { ChevronDown } from "lucide-react";
-import { Upload } from "lucide-react";
+import { ChevronDown, Upload } from "lucide-react";
 import { Editor } from "react-draft-wysiwyg";
-import { EditorState, ContentState } from "draft-js";
+import {
+  EditorState,
+  ContentState,
+  convertToRaw,
+  AtomicBlockUtils,
+  Modifier,
+  SelectionState,
+} from "draft-js";
+import draftToHtml from "draftjs-to-html";
 import "react-draft-wysiwyg/dist/react-draft-wysiwyg.css";
 import SignatureModal from "./modal/SignatureModal";
 import PaymentModal from "./modal/PaymentModal";
@@ -23,11 +30,17 @@ import ShareModal from "./modal/ShareModal";
 import Header from "./common/Header";
 import { useNavigate } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 const LegalComplaintDocs = () => {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
-  const [editorState, setEditorState] = useState(EditorState.createEmpty());
+  const [editorState, setEditorState] = useState(() => {
+    const contentState = ContentState.createFromText("");
+    return EditorState.createWithContent(contentState);
+  });
+
   const [webSocket, setWebSocket] = useState(null);
   const [category, setCategory] = useState("성매매 피해 사기");
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -46,6 +59,14 @@ const LegalComplaintDocs = () => {
 
   const [messageIndex, setMessageIndex] = useState(0);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
+
+  const [signature, setSignature] = useState(null);
+
+  const customStyleMap = {
+    FONTSIZE_24: {
+      fontSize: "24px",
+    },
+  };
 
   const prev_actions = [
     "범죄 수법",
@@ -201,7 +222,7 @@ const LegalComplaintDocs = () => {
 
   useEffect(() => {
     const initialContent = ContentState.createFromText(
-      "강제추행 고소장\n\n고소인:\n성명:\n신분:\n주민등록번호:\n전화번호:\n주소:\n기타:\n\n피고소인:\n성명:\n신분:\n주민등록번호:\n전화번호:\n주소:\n기타:\n\n고소취지:\n\n"
+      "강제추행 고소장\n\n고소인:\n성명:\n신분:\n주민등록번호:\n전화번호:\n주소:\n기타:\n\n피고소인:\n성명:\n신분:\n주민등록번호:\n전화번호:\n주소:\n기타:\n\n고소취지:\n"
     );
     setEditorState(EditorState.createWithContent(initialContent));
   }, []);
@@ -227,13 +248,126 @@ const LegalComplaintDocs = () => {
     setEditorState(newEditorState);
   };
 
+  const addSignatureToEditor = useCallback(
+    (signatureDataURL) => {
+      // Move the cursor to the end of the editor
+      let newEditorState = EditorState.moveFocusToEnd(editorState);
+
+      // Get the updated content state
+      const contentState = newEditorState.getCurrentContent();
+
+      // Create the image entity
+      const contentStateWithEntity = contentState.createEntity(
+        "IMAGE",
+        "IMMUTABLE",
+        {
+          src: signatureDataURL,
+          alt: "Signature",
+          height: "auto",
+          width: "300px",
+        }
+      );
+      const entityKey = contentStateWithEntity.getLastCreatedEntityKey();
+
+      // Get the last block
+      const blockMap = contentStateWithEntity.getBlockMap();
+      const lastBlock = blockMap.last();
+      const lastBlockKey = lastBlock.getKey();
+      const length = lastBlock.getLength();
+
+      // Create a selection at the end of the last block
+      const selection = SelectionState.createEmpty(lastBlockKey).merge({
+        anchorOffset: length,
+        focusOffset: length,
+      });
+
+      // Insert the atomic block with the image
+      const finalEditorState = AtomicBlockUtils.insertAtomicBlock(
+        EditorState.acceptSelection(newEditorState, selection),
+        entityKey,
+        " "
+      );
+
+      console.log("Editor state updated with signature");
+      setEditorState(finalEditorState);
+    },
+    [editorState]
+  );
+
+  const editorRef = useRef(null);
+
+  const saveAsPDF = async () => {
+    if (!editorRef.current) {
+      console.error("Editor element not found");
+      return;
+    }
+
+    const content = draftToHtml(convertToRaw(editorState.getCurrentContent()));
+
+    // Create a temporary div to render the HTML content
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = content;
+    tempDiv.style.fontSize = "16px"; // Increase base font size
+    tempDiv.style.width = "793px"; // A4 width in pixels at 96 DPI
+    tempDiv.style.margin = "0";
+    tempDiv.style.padding = "20px";
+    document.body.appendChild(tempDiv);
+
+    try {
+      const canvas = await html2canvas(tempDiv, {
+        scale: 2,
+        useCORS: true,
+        logging: true,
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "pt", // Use points for more precise sizing
+        format: "a4",
+      });
+
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+
+      // If content exceeds one page, add more pages
+      if (pdfHeight > pdf.internal.pageSize.getHeight()) {
+        let remainingHeight = pdfHeight;
+        let position = -pdf.internal.pageSize.getHeight();
+        while (remainingHeight > 0) {
+          pdf.addPage();
+          position += pdf.internal.pageSize.getHeight();
+          pdf.addImage(imgData, "PNG", 0, position, pdfWidth, pdfHeight);
+          remainingHeight -= pdf.internal.pageSize.getHeight();
+        }
+      }
+
+      const docName =
+        userInfo.name +
+        "_" +
+        new Date().toISOString().split("T")[0] +
+        "_complaint.pdf";
+      pdf.save(docName);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+    } finally {
+      // Clean up: remove the temporary div
+      document.body.removeChild(tempDiv);
+    }
+  };
+
   return (
-    <Container fluid className="vh-100  flex-column">
-      <Header
-        userName={userInfo.name}
-        userEmail={userInfo.email}
-        onLogout={handleLogout}
-      />
+    <Container fluid className="vh-100 flex-column">
+      {userInfo && (
+        <Header
+          userName={userInfo.name}
+          userEmail={userInfo.email}
+          onLogout={handleLogout}
+        />
+      )}
       <Row className="flex-grow-1">
         <Col md="6" className="d-flex flex-column p-3">
           <div className="chat-outer-container d-flex flex-column">
@@ -330,88 +464,93 @@ const LegalComplaintDocs = () => {
               Complaint
             </CardTitle>
             <div className="editor-wrapper">
-              <Editor
-                editorState={editorState}
-                onEditorStateChange={handleEditorStateChange}
-                onFocus={(event) => event.preventDefault()}
-                wrapperClassName="demo-wrapper"
-                editorClassName="demo-editor"
-                toolbarClassName="demo-toolbar"
-                toolbar={{
-                  options: [
-                    "inline",
-                    "blockType",
-                    "fontSize",
-                    "fontFamily",
-                    "list",
-                    "textAlign",
-                    "remove",
-                    "history",
-                  ],
-                  inline: {
-                    inDropdown: false,
-                    className: "toolbar-inline",
+              <div ref={editorRef}>
+                <Editor
+                  editorState={editorState}
+                  onEditorStateChange={handleEditorStateChange}
+                  editorStyle={{ fontSize: "16px" }}
+                  onFocus={(event) => event.preventDefault()}
+                  wrapperClassName="demo-wrapper"
+                  editorClassName="demo-editor"
+                  toolbarClassName="demo-toolbar"
+                  toolbar={{
                     options: [
-                      "bold",
-                      "italic",
-                      "underline",
-                      "strikethrough",
-                      "monospace",
+                      "inline",
+                      "blockType",
+                      "fontSize",
+                      "fontFamily",
+                      "list",
+                      "textAlign",
+                      "remove",
+                      "history",
                     ],
-                  },
-                  blockType: {
-                    inDropdown: true,
-                    options: [
-                      "Normal",
-                      "H1",
-                      "H2",
-                      "H3",
-                      "H4",
-                      "H5",
-                      "H6",
-                      "Blockquote",
-                      "Code",
-                    ],
-                    className: "toolbar-block",
-                  },
-                  fontSize: {
-                    options: [
-                      8, 9, 10, 11, 12, 14, 16, 18, 24, 30, 36, 48, 60, 72, 96,
-                    ],
-                    className: "toolbar-font-size",
-                  },
-                  fontFamily: {
-                    options: [
-                      "Arial",
-                      "Georgia",
-                      "Impact",
-                      "Tahoma",
-                      "Times New Roman",
-                      "Verdana",
-                    ],
-                    className: "toolbar-font-family",
-                  },
-                  list: {
-                    inDropdown: false,
-                    className: "toolbar-list",
-                    options: ["unordered", "ordered"],
-                  },
-                  textAlign: {
-                    inDropdown: false,
-                    className: "toolbar-text-align",
-                  },
-                }}
-                localization={{
-                  locale: "ko",
-                }}
-              />
+                    inline: {
+                      inDropdown: false,
+                      className: "toolbar-inline",
+                      options: [
+                        "bold",
+                        "italic",
+                        "underline",
+                        "strikethrough",
+                        "monospace",
+                      ],
+                    },
+                    blockType: {
+                      inDropdown: true,
+                      options: [
+                        "Normal",
+                        "H1",
+                        "H2",
+                        "H3",
+                        "H4",
+                        "H5",
+                        "H6",
+                        "Blockquote",
+                        "Code",
+                      ],
+                      className: "toolbar-block",
+                    },
+                    fontSize: {
+                      options: [
+                        8, 9, 10, 11, 12, 14, 16, 18, 24, 30, 36, 48, 60, 72,
+                        96,
+                      ],
+                      className: "toolbar-font-size",
+                      defaultSize: 24,
+                    },
+                    fontFamily: {
+                      options: [
+                        "Arial",
+                        "Georgia",
+                        "Impact",
+                        "Tahoma",
+                        "Times New Roman",
+                        "Verdana",
+                      ],
+                      className: "toolbar-font-family",
+                    },
+                    list: {
+                      inDropdown: false,
+                      className: "toolbar-list",
+                      options: ["unordered", "ordered"],
+                    },
+                    textAlign: {
+                      inDropdown: false,
+                      className: "toolbar-text-align",
+                    },
+                  }}
+                  localization={{
+                    locale: "ko",
+                  }}
+                />
+              </div>
             </div>
             <div className="d-flex justify-content-center mb-2">
               <Button
                 color="secondary"
                 onClick={() => setIsSignatureModalOpen(true)}
                 className="mx-2"
-                disabled={messageIndex < 14}
+                //disabled={messageIndex < 14}
               >
                 Sign
               </Button>
@@ -419,7 +558,7 @@ const LegalComplaintDocs = () => {
                 color="success"
                 onClick={() => setIsPaymentModalOpen(true)}
                 className="mx-2"
-                disabled={messageIndex < 14}
+                //disabled={messageIndex < 14}
               >
                 Payment
               </Button>
@@ -427,9 +566,12 @@ const LegalComplaintDocs = () => {
                 color="primary"
                 onClick={() => setIsShareModalOpen(true)}
                 className="mx-2"
-                disabled={messageIndex < 14}
+                // disabled={messageIndex < 14}
               >
                 Share
+              </Button>
+              <Button color="info" onClick={saveAsPDF} className="mx-2">
+                Save as PDF
               </Button>
             </div>
           </div>
@@ -439,6 +581,8 @@ const LegalComplaintDocs = () => {
       <SignatureModal
         isOpen={isSignatureModalOpen}
         toggle={() => setIsSignatureModalOpen(!isSignatureModalOpen)}
+        setSignature={setSignature}
+        addSignatureToEditor={addSignatureToEditor}
       />
       <PaymentModal
         isOpen={isPaymentModalOpen}
