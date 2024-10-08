@@ -20,6 +20,7 @@ import {
   convertToRaw,
   AtomicBlockUtils,
   SelectionState,
+  Modifier,
 } from "draft-js";
 import draftToHtml from "draftjs-to-html";
 import "react-draft-wysiwyg/dist/react-draft-wysiwyg.css";
@@ -134,6 +135,22 @@ const LegalComplaintDocs = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const initialContent = ContentState.createFromText(
+      "강제추행 고소장\n\n고소인\n신분:\n주소:\n\n피고소인\n신분:\n\n시간:\n장소:\n\n고소 내용:\n"
+    );
+    const newEditorState = EditorState.createWithContent(initialContent);
+    setEditorState(newEditorState);
+
+    console.log("Initial editor content:");
+    newEditorState
+      .getCurrentContent()
+      .getBlocksAsArray()
+      .forEach((block, i) => {
+        console.log(`Block ${i}: "${block.getText()}"`);
+      });
+  }, []);
+
   const handleIncomingMessage = (data) => {
     try {
       const talk = JSON.parse(data);
@@ -145,15 +162,14 @@ const LegalComplaintDocs = () => {
 
       if (talk.action === "종료") {
         console.log("대화가 종료되었습니다.");
-      } else if (messageIndex < questions.length) {
-        // messageIndex가 업데이트된 후에 다음 질문을 추가하기 위해 setMessageIndex의 콜백에서 처리
+      } else if (messageIndex < questions.length - 1) {
         setMessageIndex((prevIndex) => {
           const newIndex = prevIndex + 1;
           setMessages((prevMessages) => [
             ...prevMessages,
-            { type: "ai", content: questions[newIndex] }, // 증가된 인덱스 사용
+            { type: "ai", content: questions[newIndex] },
           ]);
-          return newIndex; // 인덱스를 증가시킨 값을 반환
+          return newIndex;
         });
       }
 
@@ -162,6 +178,89 @@ const LegalComplaintDocs = () => {
       console.error("Error parsing message:", e);
       setIsWaitingForResponse(false);
     }
+  };
+
+  const updateEditorWithAnswer = (index, answer) => {
+    const validIndexes = [1, 2, 4, 5];
+    if (!validIndexes.includes(index)) {
+      console.log(`Skipping update for index: ${index}`);
+      return;
+    }
+
+    const contentState = editorState.getCurrentContent();
+    const searchTexts = ["피고소인", "고소인", "시간", "장소"];
+
+    const searchTextIndex = index === 5 ? 3 : index === 4 ? 2 : index - 1;
+    const searchText = searchTexts[searchTextIndex];
+
+    console.log(`Searching for: "${searchText}" to update with: "${answer}"`);
+
+    const blocks = contentState.getBlocksAsArray();
+    console.log("Current editor content:");
+    blocks.forEach((block, i) => {
+      console.log(`Block ${i}: "${block.getText()}"`);
+    });
+
+    for (let i = 0; i < blocks.length; i++) {
+      const block = blocks[i];
+      const text = block.getText();
+      if (text.trim() === searchText) {
+        const nextBlock = blocks[i + 1];
+        if (nextBlock && nextBlock.getText().startsWith("신분:")) {
+          const blockKey = nextBlock.getKey();
+          const start = "신분:".length;
+          const end = nextBlock.getLength();
+          const selection = SelectionState.createEmpty(blockKey).merge({
+            anchorOffset: start,
+            focusOffset: end,
+          });
+
+          const newContent = Modifier.replaceText(
+            contentState,
+            selection,
+            ` ${answer}`
+          );
+
+          const newEditorState = EditorState.push(
+            editorState,
+            newContent,
+            "insert-characters"
+          );
+          setEditorState(newEditorState);
+          console.log(
+            `Updated editor with answer: ${answer} at index: ${index}`
+          );
+          return;
+        }
+      } else if (text.startsWith(searchText)) {
+        const blockKey = block.getKey();
+        const start = text.indexOf(":") + 1;
+        const end = text.length;
+        const selection = SelectionState.createEmpty(blockKey).merge({
+          anchorOffset: start,
+          focusOffset: end,
+        });
+
+        const newContent = Modifier.replaceText(
+          contentState,
+          selection,
+          ` ${answer}`
+        );
+
+        const newEditorState = EditorState.push(
+          editorState,
+          newContent,
+          "insert-characters"
+        );
+        setEditorState(newEditorState);
+        console.log(`Updated editor with answer: ${answer} at index: ${index}`);
+        return;
+      }
+    }
+
+    console.log(
+      `Could not find location for answer: ${answer} at index: ${index}`
+    );
   };
 
   const sendWebSocketMessage = (message) => {
@@ -188,9 +287,27 @@ const LegalComplaintDocs = () => {
     const newMessage = { type: "user", content: inputMessage };
     setMessages((prevMessages) => [...prevMessages, newMessage]);
 
+    // 사용자의 답변을 에디터에 즉시 반영 (인덱스 1, 2, 4, 5에 대해서만)
+    if ([1, 2, 4, 5].includes(messageIndex)) {
+      console.log(`Attempting to update editor for index: ${messageIndex}`);
+      updateEditorWithAnswer(messageIndex, inputMessage.trim());
+    }
+
     sendWebSocketMessage(inputMessage);
     setInputMessage("");
   };
+
+  useEffect(() => {
+    if (messages.length > 0 && messages[messages.length - 1].type === "user") {
+      const lastUserMessage = messages[messages.length - 1].content;
+      if ([1, 2, 4, 5].includes(messageIndex)) {
+        console.log(
+          `Attempting to update editor for index: ${messageIndex} from useEffect`
+        );
+        updateEditorWithAnswer(messageIndex, lastUserMessage);
+      }
+    }
+  }, [messages, messageIndex]);
 
   const toggleDropdown = () => {
     setDropdownOpen((prevState) => !prevState);
@@ -215,13 +332,6 @@ const LegalComplaintDocs = () => {
       chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
     }
   }, [messages]);
-
-  useEffect(() => {
-    const initialContent = ContentState.createFromText(
-      "강제추행 고소장\n\n고소인:\n성명:\n신분:\n주민등록번호:\n전화번호:\n주소:\n기타:\n\n피고소인:\n성명:\n신분:\n주민등록번호:\n전화번호:\n주소:\n기타:\n\n고소취지:\n"
-    );
-    setEditorState(EditorState.createWithContent(initialContent));
-  }, []);
 
   const handleKeyPress = (event) => {
     if (event.key === "Enter") {
