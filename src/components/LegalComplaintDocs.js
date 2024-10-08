@@ -19,7 +19,6 @@ import {
   ContentState,
   convertToRaw,
   AtomicBlockUtils,
-  Modifier,
   SelectionState,
 } from "draft-js";
 import draftToHtml from "draftjs-to-html";
@@ -32,6 +31,7 @@ import { useNavigate } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import axios from "axios";
 
 const LegalComplaintDocs = () => {
   const [messages, setMessages] = useState([]);
@@ -59,14 +59,10 @@ const LegalComplaintDocs = () => {
 
   const [messageIndex, setMessageIndex] = useState(0);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [editorContent, setEditorContent] = useState("");
 
   const [signature, setSignature] = useState(null);
-
-  const customStyleMap = {
-    FONTSIZE_24: {
-      fontSize: "24px",
-    },
-  };
 
   const prev_actions = [
     "범죄 수법",
@@ -227,16 +223,6 @@ const LegalComplaintDocs = () => {
     setEditorState(EditorState.createWithContent(initialContent));
   }, []);
 
-  const handleFileUpload = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        { type: "user", content: `File uploaded: ${file.name}` },
-      ]);
-    }
-  };
-
   const handleKeyPress = (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
@@ -246,6 +232,79 @@ const LegalComplaintDocs = () => {
 
   const handleEditorStateChange = (newEditorState) => {
     setEditorState(newEditorState);
+    const contentState = newEditorState.getCurrentContent();
+    const rawContentState = convertToRaw(contentState);
+    const htmlContent = draftToHtml(rawContentState);
+    setEditorContent(htmlContent);
+  };
+
+  const handleFileUpload = (event) => {
+    const files = Array.from(event.target.files);
+    const filePromises = files.map(
+      (file) =>
+        new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            resolve({ name: file.name, content: e.target.result });
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        })
+    );
+
+    Promise.all(filePromises)
+      .then((newFiles) => {
+        setUploadedFiles((prevFiles) => [...prevFiles, ...newFiles]);
+        setMessages((prevMessages) => [
+          ...prevMessages,
+          {
+            type: "user",
+            content: `Files uploaded: ${files.map((f) => f.name).join(", ")}`,
+          },
+        ]);
+      })
+      .catch((error) => {
+        console.error("Error reading files:", error);
+        alert("Failed to upload files. Please try again.");
+      });
+  };
+
+  const handleShareDocument = async (email) => {
+    try {
+      const jsonData = {
+        email: email,
+        files: uploadedFiles.map((file) => ({
+          name: file.name,
+          content: file.content,
+          type: file.type,
+        })),
+      };
+
+      console.log("Sending data:", jsonData);
+
+      const response = await axios.post("/webchat/email", jsonData, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      console.log("Response:", response);
+
+      if (response.status === 200) {
+        alert("Document shared successfully!");
+        setUploadedFiles([]);
+      } else {
+        throw new Error("Failed to share document");
+      }
+    } catch (error) {
+      console.error("Error sharing document:", error);
+      alert("Failed to share document. Please try again.");
+    }
+    setIsShareModalOpen(false);
+  };
+
+  const removeFile = (index) => {
+    setUploadedFiles((prevFiles) => prevFiles.filter((_, i) => i !== index));
   };
 
   const addSignatureToEditor = useCallback(
@@ -394,6 +453,9 @@ const LegalComplaintDocs = () => {
                   >
                     중고 거래 사기
                   </DropdownItem>
+                  <DropdownItem onClick={() => handleCategorySelect("기타")}>
+                    기타
+                  </DropdownItem>
                 </DropdownMenu>
               </Dropdown>
               <div className="chat-messages overflow-auto" ref={chatAreaRef}>
@@ -445,7 +507,7 @@ const LegalComplaintDocs = () => {
               color="secondary"
               onClick={() => fileInputRef.current.click()}
               style={{ marginLeft: "5px" }}
-              disabled={messageIndex < 14}
+              // disabled={messageIndex < 14}
             >
               <Upload size={20} />
             </Button>
@@ -454,7 +516,7 @@ const LegalComplaintDocs = () => {
               innerRef={fileInputRef}
               style={{ display: "none" }}
               onChange={handleFileUpload}
-              disabled={messageIndex < 14}
+              //disabled={messageIndex < 14}
             />
           </InputGroup>
         </Col>
@@ -570,7 +632,12 @@ const LegalComplaintDocs = () => {
               >
                 Share
               </Button>
-              <Button color="info" onClick={saveAsPDF} className="mx-2">
+              <Button
+                color="info"
+                onClick={saveAsPDF}
+                className="mx-2"
+                // disabled={messageIndex < 14}
+              >
                 Save as PDF
               </Button>
             </div>
@@ -591,6 +658,9 @@ const LegalComplaintDocs = () => {
       <ShareModal
         isOpen={isShareModalOpen}
         toggle={() => setIsShareModalOpen(!isShareModalOpen)}
+        onShare={handleShareDocument}
+        uploadedFiles={uploadedFiles}
+        removeFile={removeFile}
       />
     </Container>
   );
