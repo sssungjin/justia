@@ -139,12 +139,24 @@ const LegalComplaintDocs = () => {
     };
   }, []);
 
+  const formatDate = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0"); // 월은 0부터 시작하므로 +1
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}/${month}/${day}`;
+  };
+
   useEffect(() => {
     const blocks = [
       new ContentBlock({
         key: genKey(),
         type: "unstyled",
         text: "고소장",
+      }),
+      new ContentBlock({
+        key: genKey(),
+        type: "unstyled",
+        text: formatDate(new Date()),
       }),
       new ContentBlock({
         key: genKey(),
@@ -192,7 +204,7 @@ const LegalComplaintDocs = () => {
       .getCurrentContent()
       .getBlocksAsArray()
       .forEach((block, i) => {
-        console.log(`Block ${i}: "${block.getText()}"`);
+        console.log(`Block ${i}: "${block.getText()}"`); // 여기서 초기 블록 내용을 확인합니다.
       });
   }, []);
 
@@ -212,13 +224,16 @@ const LegalComplaintDocs = () => {
       if (talk.action === "종료") {
         console.log("대화가 종료되었습니다.");
       } else if (currentIndex === 14 && talk.msg) {
-        // 14번 인덱스에 대한 응답 처리
         setMessages((prevMessages) => [
           ...prevMessages,
           { type: "ai", content: talk.msg },
         ]);
-        // 에디터 업데이트
-        updateEditorWithComplaintContent(talk.msg);
+
+        // 에디터 업데이트 - AI의 메시지를 고소 내용 뒤에 추가
+        setEditorState((prevState) => {
+          updateEditorWithComplaintContent(talk.msg, prevState); // 이전 상태를 사용하여 업데이트합니다.
+          return prevState; // 이전 상태를 그대로 반환합니다.
+        });
       } else if (currentIndex < questions.length) {
         const newIndex = currentIndex + 1;
         messageIndexRef.current = newIndex;
@@ -234,16 +249,6 @@ const LegalComplaintDocs = () => {
       setIsWaitingForResponse(false);
     }
   };
-
-  useEffect(() => {
-    const contentState = editorState.getCurrentContent();
-    const blocks = contentState.getBlocksAsArray();
-
-    console.log("Initial editor content:");
-    blocks.forEach((block, i) => {
-      console.log(`Block ${i}: "${block.getText()}"`);
-    });
-  }, []);
 
   const updateEditorWithAnswer = (index, answer) => {
     const validIndexes = [1, 2, 4, 5];
@@ -328,69 +333,67 @@ const LegalComplaintDocs = () => {
     );
   };
 
-  const updateEditorWithComplaintContent = (content) => {
-    let contentState = editorState.getCurrentContent();
-    let blocks = contentState.getBlocksAsArray();
+  const updateEditorWithComplaintContent = useCallback(
+    (content, currentEditorState) => {
+      let contentState = currentEditorState.getCurrentContent();
+      let blocks = contentState.getBlocksAsArray();
 
-    console.log("Current editor content:");
-    blocks.forEach((block, i) => {
-      console.log(`Block ${i}: "${block.getText()}"`);
-    });
+      console.log(
+        "Current editor content in updateEditorWithComplaintContent:"
+      );
+      blocks.forEach((block, i) => {
+        console.log(
+          `Block ${i}: "${block.getText()}" (Key: ${block.getKey()})`
+        );
+      });
 
-    let complaintBlockIndex = -1;
+      // "고소 내용:" 블록 찾기
+      const complaintBlockIndex = blocks.findIndex(
+        (block) => block.getText().trim() === "고소 내용:"
+      );
 
-    // "고소 내용:" 블록 찾기
-    for (let i = 0; i < blocks.length; i++) {
-      const blockText = blocks[i].getText().trim(); // trim으로 앞뒤 공백 제거
-      if (blockText === "고소 내용:") {
-        // 정확한 텍스트 매칭
-        complaintBlockIndex = i;
-        console.log("Found '고소 내용:' block at index:", i);
-        break;
-      }
-    }
+      if (complaintBlockIndex !== -1) {
+        const complaintBlock = blocks[complaintBlockIndex];
+        const blockKey = complaintBlock.getKey();
 
-    if (complaintBlockIndex !== -1) {
-      // "고소 내용:" 블록 뒤에 내용 추가
-      const complaintBlock = blocks[complaintBlockIndex];
-      const blockKey = complaintBlock.getKey();
-
-      const newContentState = Modifier.insertText(
-        contentState,
-        SelectionState.createEmpty(blockKey).merge({
+        // "고소 내용:" 블록 다음에 새 블록 추가
+        const selection = SelectionState.createEmpty(blockKey).merge({
           anchorOffset: complaintBlock.getLength(),
           focusOffset: complaintBlock.getLength(),
-        }),
-        "\n" + content // 새 내용 추가
-      );
+        });
 
-      const newEditorState = EditorState.push(
-        editorState,
-        newContentState,
-        "insert-characters"
-      );
+        let newContentState = Modifier.splitBlock(contentState, selection);
+        newContentState = Modifier.insertText(
+          newContentState,
+          newContentState.getSelectionAfter(),
+          content
+        );
 
-      setEditorState(newEditorState);
+        const newEditorState = EditorState.push(
+          currentEditorState,
+          newContentState,
+          "insert-fragment"
+        );
 
-      // 업데이트된 에디터 상태 다시 가져오기
-      const updatedBlocks = newEditorState
-        .getCurrentContent()
-        .getBlocksAsArray();
-      console.log("Updated editor content:");
-      updatedBlocks.forEach((block, i) => {
-        console.log(`Block ${i}: "${block.getText()}"`);
-      });
-    } else {
-      console.log("'고소 내용:' block not found.");
-    }
+        setEditorState(newEditorState);
+        console.log("Updated editor with complaint content");
 
-    // 업데이트된 내용 로그 출력
-    const updatedBlocks = editorState.getCurrentContent().getBlocksAsArray();
-    console.log("Updated editor content:");
-    updatedBlocks.forEach((block, i) => {
-      console.log(`Block ${i}: "${block.getText()}"`);
-    });
-  };
+        // 업데이트된 내용 로그 출력
+        const updatedBlocks = newEditorState
+          .getCurrentContent()
+          .getBlocksAsArray();
+        console.log("Updated editor content:");
+        updatedBlocks.forEach((block, i) => {
+          console.log(
+            `Block ${i}: "${block.getText()}" (Key: ${block.getKey()})`
+          );
+        });
+      } else {
+        console.log("Error: '고소 내용:' block not found.");
+      }
+    },
+    []
+  );
 
   const sendWebSocketMessage = (message, index = null) => {
     const currentIndex = index !== null ? index : messageIndexRef.current;
@@ -752,12 +755,20 @@ const LegalComplaintDocs = () => {
             >
               Send
             </Button>
+            <Button
+              color="secondary"
+              onClick={() => fileInputRef.current.click()}
+              style={{ marginLeft: "5px" }}
+              disabled={messageIndexRef.current < 14}
+            >
+              <Upload size={20} />
+            </Button>
             <Input
               type="file"
               innerRef={fileInputRef}
               style={{ display: "none" }}
               onChange={handleFileUpload}
-              //disabled={messageIndex < 14}
+              disabled={messageIndexRef.current < 14}
             />
           </InputGroup>
         </Col>
@@ -853,6 +864,7 @@ const LegalComplaintDocs = () => {
                 color="secondary"
                 onClick={() => setIsSignatureModalOpen(true)}
                 className="mx-2"
+                disabled={messageIndexRef.current < 14}
                 //disabled={messageIndex < 14}
               >
                 Sign
@@ -861,6 +873,7 @@ const LegalComplaintDocs = () => {
                 color="success"
                 onClick={() => setIsPaymentModalOpen(true)}
                 className="mx-2"
+                disabled={messageIndexRef.current < 14}
                 //disabled={messageIndex < 14}
               >
                 Payment
@@ -869,6 +882,7 @@ const LegalComplaintDocs = () => {
                 color="primary"
                 onClick={() => setIsShareModalOpen(true)}
                 className="mx-2"
+                disabled={messageIndexRef.current < 14}
                 // disabled={messageIndex < 14}
               >
                 Share
@@ -877,6 +891,7 @@ const LegalComplaintDocs = () => {
                 color="info"
                 onClick={saveAsPDF}
                 className="mx-2"
+                disabled={messageIndexRef.current < 14}
                 // disabled={messageIndex < 14}
               >
                 Save as PDF
