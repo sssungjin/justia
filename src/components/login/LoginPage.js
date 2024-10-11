@@ -1,9 +1,11 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import facebookLoginImage from "../../styles/images/facebooklogin.png";
 import justiaLogo from "../../styles/images/justia_logo.png";
 
 const LoginPage = ({ onLogin }) => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -48,9 +50,9 @@ const LoginPage = ({ onLogin }) => {
             navigate("/");
           });
         } else if (response.status === "not_authorized") {
-          alert("앱에 로그인해야 이용가능한 기능입니다.");
+          alert(t("loginAlerts.notAuthorized"));
         } else {
-          alert("페이스북에 로그인해야 이용가능한 기능입니다.");
+          alert(t("loginAlerts.notLoggedIn"));
         }
       },
       { scope: "public_profile,email" }
@@ -67,7 +69,7 @@ const LoginPage = ({ onLogin }) => {
       }}
     >
       <div style={{ textAlign: "center" }}>
-        <h1 style={{ marginBottom: "20px" }}>고소장 작성</h1>
+        <h1 style={{ marginBottom: "20px" }}>{t("loginPage.title")}</h1>
         <img
           src={justiaLogo}
           alt="Justia Logo"
@@ -76,7 +78,7 @@ const LoginPage = ({ onLogin }) => {
         <br />
         <img
           src={facebookLoginImage}
-          alt="Login with Facebook"
+          alt={t("loginPage.facebookLoginAlt")}
           onClick={handleFacebookLogin}
           style={{ cursor: "pointer", width: "200px", height: "auto" }}
         />
