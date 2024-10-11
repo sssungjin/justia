@@ -36,16 +36,11 @@ import useAuth from "../hooks/useAuth";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import axios from "axios";
-
-const styles = `
-.COMPLAINT_TITLE {
-  text-align: center;
-  font-size: 24px;
-  font-weight: bold;
-}
-`;
+import { useTranslation } from "react-i18next";
 
 const LegalComplaintDocs = () => {
+  const { t } = useTranslation();
+
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
   const [editorState, setEditorState] = useState(() => {
@@ -97,23 +92,7 @@ const LegalComplaintDocs = () => {
     "다른 민형사",
   ];
 
-  const questions = [
-    "",
-    "피고소인의 직업이나 신분에 대해 알려주세요",
-    "고객님의 신분도 알려주세요",
-    "처음에 피고소인은 어떻게 알게 되었습니까?",
-    "사건이 일어난 날짜는 언제인가요?",
-    "사건이 일어난 장소는 어디인가요?",
-    "어떤 방식으로 서비스를 받고 돈을 지불하는 걸로 결정했었나요?",
-    "피고소인이 뭐라고 거짓말을 하며 돈을 입금하라고 했습니까?",
-    "재산은 어떻게 마련했습니까?",
-    "재산의 처분은 어떻게 하였습니까?",
-    "피고소인이 거짓말을 해왔다는 걸 알게 된 계기는 무엇입니까?",
-    "다른 피해 사실도 있습니까?",
-    "고소하게 된 동기는 무엇입니까?",
-    "사건과 관련하여 민형사를 진행하고 있습니까?",
-    "고소장을 작성해 드리겠습니다. 받을 준비가 되었다면 '종료'라고 입력해주세요.",
-  ];
+  const questions = Array.from({ length: 15 }, (_, i) => t(`questions.${i}`));
 
   useEffect(() => {
     const storedUserInfo = sessionStorage.getItem("userInfo");
@@ -130,8 +109,7 @@ const LegalComplaintDocs = () => {
       setMessages([
         {
           type: "ai",
-          content:
-            "어서오세요 Legal Justia 입니다. 고소장 카테고리를 선택해주세요.",
+          content: t("welcomeMessage"),
         },
       ]);
     };
@@ -164,42 +142,49 @@ const LegalComplaintDocs = () => {
     return `${year}/${month}/${day}`;
   };
 
+  const searchTexts = [
+    t("accusedStatus"),
+    t("complainantStatus"),
+    t("crimeDateTime"),
+    t("crimeLocation"),
+  ];
+
   useEffect(() => {
     const blocks = [
       new ContentBlock({
         key: genKey(),
         type: "header-two",
-        text: "고소장",
+        text: t("complaint"),
       }),
       new ContentBlock({
         key: genKey(),
         type: "unstyled",
-        text: "작성일: " + formatDate(new Date()),
+        text: t("creationDate", { date: formatDate(new Date()) }),
       }),
       new ContentBlock({
         key: genKey(),
         type: "unstyled",
-        text: "고소인 신분:",
+        text: t("complainantStatus") + ":",
       }),
       new ContentBlock({
         key: genKey(),
         type: "unstyled",
-        text: "피고소인 신분:",
+        text: t("accusedStatus") + ":",
       }),
       new ContentBlock({
         key: genKey(),
         type: "unstyled",
-        text: "범죄 발생 일시:",
+        text: t("crimeDateTime") + ":",
       }),
       new ContentBlock({
         key: genKey(),
         type: "unstyled",
-        text: "범죄 발생 장소:",
+        text: t("crimeLocation") + ":",
       }),
       new ContentBlock({
         key: genKey(),
         type: "unstyled",
-        text: "고소 내용:",
+        text: t("complaintContent") + ":",
       }),
     ];
 
@@ -209,10 +194,7 @@ const LegalComplaintDocs = () => {
 
     console.log("Initial editor content:");
     newEditorState.getCurrentContent().getBlocksAsArray();
-    // .forEach((block, i) => {
-    //   console.log(`Block ${i}: "${block.getText()}"`);
-    // });
-  }, []);
+  }, [t]);
 
   const blockStyleFn = (contentBlock) => {
     const data = contentBlock.getData();
@@ -282,12 +264,6 @@ const LegalComplaintDocs = () => {
     }
 
     const contentState = editorState.getCurrentContent();
-    const searchTexts = [
-      "피고소인 신분:",
-      "고소인 신분:",
-      "범죄 발생 일시:",
-      "범죄 발생 장소:",
-    ];
 
     const searchTextIndex = index === 5 ? 3 : index === 4 ? 2 : index - 1;
     const searchText = searchTexts[searchTextIndex];
@@ -302,10 +278,13 @@ const LegalComplaintDocs = () => {
 
     for (let i = 0; i < blocks.length; i++) {
       const block = blocks[i];
-      const text = block.getText();
-      if (text.trim() === searchText) {
+      const text = block.getText().trim();
+      console.log(
+        `Comparing block text: "${text}" with search text: "${searchText}:"`
+      );
+      if (text.startsWith(searchText)) {
         const blockKey = block.getKey();
-        const start = text.length;
+        const start = text.indexOf(":") + 1;
         const end = text.length;
         const selection = SelectionState.createEmpty(blockKey).merge({
           anchorOffset: start,
@@ -349,7 +328,7 @@ const LegalComplaintDocs = () => {
       });
 
       const complaintBlockIndex = blocks.findIndex(
-        (block) => block.getText().trim() === "고소 내용:"
+        (block) => block.getText().trim() === t("complaintContent") + ":"
       );
 
       if (complaintBlockIndex !== -1) {
@@ -460,11 +439,11 @@ const LegalComplaintDocs = () => {
     setMessages([
       {
         type: "ai",
-        content:
-          "어서오세요 Legal Justia 입니다. 고소장 카테고리를 선택해주세요.",
+        content: t("welcomeMessage"),
       },
       { type: "user", content: `${selectedCategory}` },
     ]);
+    console.log(messages);
     messageIndexRef.current = 0;
     sendWebSocketMessage(selectedCategory, 0);
   };
@@ -686,21 +665,23 @@ const LegalComplaintDocs = () => {
                   caret
                   className="w-80 text-left d-flex justify-content-between align-items-center custom-dropdown-toggle"
                 >
-                  {category || "Category"} <ChevronDown size={20} />
+                  {category || t("category")} <ChevronDown size={20} />
                 </DropdownToggle>
                 <DropdownMenu className="w-80">
                   <DropdownItem
-                    onClick={() => handleCategorySelect("성매매 피해 사기")}
+                    onClick={() => handleCategorySelect(t("prostitutionFraud"))}
                   >
-                    성매매 피해 사기
+                    {t("prostitutionFraud")}
                   </DropdownItem>
                   <DropdownItem
-                    onClick={() => handleCategorySelect("중고 거래 사기")}
+                    onClick={() => handleCategorySelect(t("secondHandFraud"))}
                   >
-                    중고 거래 사기
+                    {t("secondHandFraud")}
                   </DropdownItem>
-                  <DropdownItem onClick={() => handleCategorySelect("기타")}>
-                    기타
+                  <DropdownItem
+                    onClick={() => handleCategorySelect(t("other"))}
+                  >
+                    {t("other")}
                   </DropdownItem>
                 </DropdownMenu>
               </Dropdown>
@@ -715,7 +696,7 @@ const LegalComplaintDocs = () => {
                     {msg.type === "user" ? (
                       <div className="user-bubble">
                         <div className="font-weight-bold">
-                          고소인: {userInfo.name}
+                          {t("complainant")}: {userInfo.name}
                         </div>
                         <div>{msg.content}</div>
                       </div>
@@ -774,7 +755,7 @@ const LegalComplaintDocs = () => {
         <Col md="6" className="d-flex flex-column p-3">
           <div className="editor-container flex-grow-1 mb-1 mt-2">
             <CardTitle tag="h2" className="text-center mt-3">
-              고소장
+              {t("complaint")}
             </CardTitle>
             <div className="editor-wrapper">
               <div ref={editorRef}>
