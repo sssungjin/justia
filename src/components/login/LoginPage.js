@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import facebookLoginImage from "../../styles/images/facebooklogin.png";
+import justiaLogo from "../../styles/images/justia_logo.png";
 
 const LoginPage = ({ onLogin }) => {
   const navigate = useNavigate();
@@ -36,7 +37,6 @@ const LoginPage = ({ onLogin }) => {
       function (response) {
         if (response.status === "connected") {
           console.log("Login successful", response);
-          // 사용자 정보를 가져와 sessionStorage에 저장
           window.FB.api("/me", { fields: "name,email" }, function (userData) {
             const user = {
               id: response.authResponse.userID,
@@ -66,10 +66,14 @@ const LoginPage = ({ onLogin }) => {
         height: "100vh",
       }}
     >
-      <div>
-        <h1 style={{ textAlign: "center", marginBottom: "20px" }}>
-          고소장 작성하기
-        </h1>
+      <div style={{ textAlign: "center" }}>
+        <h1 style={{ marginBottom: "20px" }}>고소장 작성</h1>
+        <img
+          src={justiaLogo}
+          alt="Justia Logo"
+          style={{ width: "400px", height: "auto", marginBottom: "20px" }}
+        />
+        <br />
         <img
           src={facebookLoginImage}
           alt="Login with Facebook"
