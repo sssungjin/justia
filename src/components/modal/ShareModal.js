@@ -11,7 +11,7 @@ import {
   ListGroup,
   ListGroupItem,
 } from "reactstrap";
-import { X, Paperclip, XCircle } from "lucide-react";
+import { Paperclip } from "lucide-react";
 
 const ShareModal = ({ isOpen, toggle, onShare, uploadedFiles, removeFile }) => {
   const [email, setEmail] = useState("");
@@ -30,16 +30,7 @@ const ShareModal = ({ isOpen, toggle, onShare, uploadedFiles, removeFile }) => {
 
   return (
     <Modal isOpen={isOpen} toggle={toggle}>
-      <ModalHeader
-        toggle={toggle}
-        close={
-          <button className="close" onClick={toggle}>
-            <X />
-          </button>
-        }
-      >
-        Share Document
-      </ModalHeader>
+      <ModalHeader toggle={toggle}>Share Document</ModalHeader>
       <ModalBody>
         <Input
           type="email"
@@ -61,9 +52,19 @@ const ShareModal = ({ isOpen, toggle, onShare, uploadedFiles, removeFile }) => {
                   className="d-flex justify-content-between align-items-center"
                 >
                   {file.name}
-                  <Button close onClick={() => removeFile(index)}>
-                    <XCircle size={16} />
-                  </Button>
+                  <button
+                    className="btn btn-link p-0"
+                    onClick={() => removeFile(index)}
+                    style={{
+                      fontSize: "1.5rem",
+                      fontWeight: "bold",
+                      color: "#6c757d",
+                      opacity: "0.8",
+                      textDecoration: "none",
+                    }}
+                  >
+                    &times;
+                  </button>
                 </ListGroupItem>
               ))}
             </ListGroup>
