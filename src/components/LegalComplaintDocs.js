@@ -42,59 +42,54 @@ import justiaLogo from "../styles/images/justia_logo.png";
 const LegalComplaintDocs = ({ onLogout, currentLanguage, changeLanguage }) => {
   const { t } = useTranslation();
 
+  const [userInfo, setUserInfo] = useState(null);
+
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
+
+  const [category, setCategory] = useState("");
+
   const [editorState, setEditorState] = useState(() => {
     const contentState = ContentState.createFromText("");
     return EditorState.createWithContent(contentState);
   });
+  const [editorContent, setEditorContent] = useState("");
 
   const [webSocket, setWebSocket] = useState(null);
-  const [category, setCategory] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
-  const chatAreaRef = useRef(null);
-  const fileInputRef = useRef(null);
-  const dropdownRef = useRef(null);
-
-  const [userInfo, setUserInfo] = useState(null);
-  const { logout } = useAuth();
-  const navigate = useNavigate();
-
-  const messageIndexRef = useRef(0);
-
-  const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
-  const [editorContent, setEditorContent] = useState("");
-
   const [signature, setSignature] = useState(null);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingComplaint, setIsGeneratingComplaint] = useState(false);
+  const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
+
+  const messageIndexRef = useRef(0);
+  const chatAreaRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const dropdownRef = useRef(null);
   const editorRef = useRef(null);
 
-  const prev_actions = [
-    "범죄 수법",
-    "피고소인 신분",
-    "고소인 신분",
-    "피고소인을 알게된 경위",
-    "날짜",
-    "장소",
-    "거래 방법",
-    "거짓말의 내용",
-    "재산 마련 방법",
-    "재산의 처분 방법",
-    "거짓임을 깨닫게 된 계기",
-    "다른 피해사실",
-    "고소 이유",
-    "다른 민형사",
-  ];
-
   const questions = Array.from({ length: 15 }, (_, i) => t(`questions.${i}`));
+
+  const formatDate = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}/${month}/${day}`;
+  };
+
+  const searchTexts = [
+    t("accusedStatus"),
+    t("complainantStatus"),
+    t("crimeDateTime"),
+    t("crimeLocation"),
+  ];
 
   useEffect(() => {
     const storedUserInfo = sessionStorage.getItem("userInfo");
@@ -136,20 +131,6 @@ const LegalComplaintDocs = ({ onLogout, currentLanguage, changeLanguage }) => {
       }
     };
   }, []);
-
-  const formatDate = (date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}/${month}/${day}`;
-  };
-
-  const searchTexts = [
-    t("accusedStatus"),
-    t("complainantStatus"),
-    t("crimeDateTime"),
-    t("crimeLocation"),
-  ];
 
   useEffect(() => {
     const blocks = [
@@ -194,7 +175,6 @@ const LegalComplaintDocs = ({ onLogout, currentLanguage, changeLanguage }) => {
     const newEditorState = EditorState.createWithContent(initialContent);
     setEditorState(newEditorState);
 
-    console.log("Initial editor content:");
     newEditorState.getCurrentContent().getBlocksAsArray();
   }, [t]);
 
@@ -229,7 +209,6 @@ const LegalComplaintDocs = ({ onLogout, currentLanguage, changeLanguage }) => {
       console.log("current index:", currentIndex);
 
       if (talk.action === "종료") {
-        console.log("대화가 종료되었습니다.");
         setIsGeneratingComplaint(false);
       } else if (currentIndex === 14 && talk.msg) {
         setMessages((prevMessages) => [
@@ -273,20 +252,12 @@ const LegalComplaintDocs = ({ onLogout, currentLanguage, changeLanguage }) => {
     const searchTextIndex = index === 5 ? 3 : index === 4 ? 2 : index - 1;
     const searchText = searchTexts[searchTextIndex];
 
-    console.log(`Searching for: "${searchText}" to update with: "${answer}"`);
-
     const blocks = contentState.getBlocksAsArray();
-    console.log("Current editor content:");
-    blocks.forEach((block, i) => {
-      console.log(`Block ${i}: "${block.getText()}"`);
-    });
 
     for (let i = 0; i < blocks.length; i++) {
       const block = blocks[i];
       const text = block.getText().trim();
-      console.log(
-        `Comparing block text: "${text}" with search text: "${searchText}:"`
-      );
+
       if (text.startsWith(searchText)) {
         const blockKey = block.getKey();
         const start = text.indexOf(":") + 1;
@@ -308,7 +279,6 @@ const LegalComplaintDocs = ({ onLogout, currentLanguage, changeLanguage }) => {
           "insert-characters"
         );
         setEditorState(newEditorState);
-        console.log(`Updated editor with answer: ${answer} at index: ${index}`);
         return;
       }
     }
@@ -364,12 +334,6 @@ const LegalComplaintDocs = ({ onLogout, currentLanguage, changeLanguage }) => {
         const updatedBlocks = newEditorState
           .getCurrentContent()
           .getBlocksAsArray();
-        console.log("Updated editor content:");
-        updatedBlocks.forEach((block, i) => {
-          console.log(
-            `Block ${i}: "${block.getText()}" (Key: ${block.getKey()})`
-          );
-        });
       } else {
         console.log("Error: '고소 내용:' block not found.");
       }
@@ -427,9 +391,6 @@ const LegalComplaintDocs = ({ onLogout, currentLanguage, changeLanguage }) => {
     if (messages.length > 0 && messages[messages.length - 1].type === "user") {
       const lastUserMessage = messages[messages.length - 1].content;
       if ([1, 2, 4, 5].includes(messageIndexRef.current)) {
-        // console.log(
-        //   `Attempting to update editor for index: ${messageIndexRef.current} from useEffect`
-        // );
         updateEditorWithAnswer(messageIndexRef.current, lastUserMessage);
       }
     }
@@ -451,7 +412,6 @@ const LegalComplaintDocs = ({ onLogout, currentLanguage, changeLanguage }) => {
       },
       { type: "user", content: `${selectedCategory}` },
     ]);
-    console.log(messages);
     messageIndexRef.current = 0;
     sendWebSocketMessage(selectedCategory, 0);
   };
@@ -531,7 +491,6 @@ const LegalComplaintDocs = ({ onLogout, currentLanguage, changeLanguage }) => {
 
       console.log("Sending data:", jsonData);
 
-      // 비동기로 처리하고 바로 모달을 닫습니다.
       axios.post("/webchat/email", jsonData, {
         headers: {
           "Content-Type": "application/json",
@@ -539,9 +498,6 @@ const LegalComplaintDocs = ({ onLogout, currentLanguage, changeLanguage }) => {
       });
 
       setIsShareModalOpen(false);
-      // alert(
-      //   "문서 공유 요청이 전송되었습니다. 백그라운드에서 처리될 예정입니다."
-      // );
     } catch (error) {
       console.error("Error sharing document:", error);
       alert("Failed to share document. Please try again.");
