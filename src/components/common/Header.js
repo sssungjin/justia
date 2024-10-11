@@ -1,12 +1,19 @@
 import React from "react";
 import { Navbar, Nav, NavItem, Button } from "reactstrap";
+import justiaLogo from "../../styles/images/justia_text.png";
 
 const Header = ({ userName, userEmail, onLogout }) => {
   return (
     <Navbar color="light" light expand="md" className="mt-2 px-2">
       <div className="container-fluid d-flex justify-content-between align-items-center">
         <div className="d-flex align-items-center">
-          <h3 className="mb-0 ml-2">Justia - Legal Chatbot</h3>
+          {/* <h3 className="mb-0 ml-2">Justia - Legal Chatbot</h3> */}
+          <img
+            src={justiaLogo}
+            alt="Justia Logo"
+            className="mt-2"
+            style={{ width: "200px", height: "auto" }}
+          />
         </div>
         <Nav className="d-flex align-items-center" navbar>
           <NavItem className="mr-3">
