@@ -25,7 +25,6 @@ import {
   ContentBlock,
   genKey,
 } from "draft-js";
-import { Map } from "immutable";
 import draftToHtml from "draftjs-to-html";
 import "react-draft-wysiwyg/dist/react-draft-wysiwyg.css";
 import SignatureModal from "./modal/SignatureModal";
@@ -37,6 +36,14 @@ import useAuth from "../hooks/useAuth";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import axios from "axios";
+
+const styles = `
+.COMPLAINT_TITLE {
+  text-align: center;
+  font-size: 24px;
+  font-weight: bold;
+}
+`;
 
 const LegalComplaintDocs = () => {
   const [messages, setMessages] = useState([]);
@@ -71,6 +78,7 @@ const LegalComplaintDocs = () => {
   const [signature, setSignature] = useState(null);
 
   const [isLoading, setIsLoading] = useState(false);
+  const editorRef = useRef(null);
 
   const prev_actions = [
     "범죄 수법",
@@ -160,18 +168,13 @@ const LegalComplaintDocs = () => {
     const blocks = [
       new ContentBlock({
         key: genKey(),
-        type: "unstyled",
+        type: "header-two",
         text: "고소장",
-        data: Map({
-          textAlign: "center",
-          fontSize: "24px",
-          fontWeight: "bold",
-        }),
       }),
       new ContentBlock({
         key: genKey(),
         type: "unstyled",
-        text: formatDate(new Date()),
+        text: "작성일: " + formatDate(new Date()),
       }),
       new ContentBlock({
         key: genKey(),
@@ -210,6 +213,23 @@ const LegalComplaintDocs = () => {
     //   console.log(`Block ${i}: "${block.getText()}"`);
     // });
   }, []);
+
+  const blockStyleFn = (contentBlock) => {
+    const data = contentBlock.getData();
+    let styles = [];
+
+    if (data.get("textAlign")) {
+      styles.push(`text-align-${data.get("textAlign")}`);
+    }
+    if (data.get("fontSize")) {
+      styles.push(`font-size-${data.get("fontSize").replace("px", "")}`);
+    }
+    if (data.get("fontWeight")) {
+      styles.push(`font-weight-${data.get("fontWeight")}`);
+    }
+
+    return styles.join(" ");
+  };
 
   const handleIncomingMessage = (data) => {
     try {
@@ -585,8 +605,6 @@ const LegalComplaintDocs = () => {
     [editorState]
   );
 
-  const editorRef = useRef(null);
-
   const saveAsPDF = async () => {
     if (!editorRef.current) {
       console.error("Editor element not found");
@@ -634,11 +652,10 @@ const LegalComplaintDocs = () => {
         }
       }
 
-      const docName =
-        userInfo.id +
-        "_" +
-        new Date().toISOString().split("T")[0] +
-        "_complaint.pdf";
+      const emailPrefix = userInfo.email.split("@")[0];
+      const docName = `${emailPrefix}_${
+        new Date().toISOString().split("T")[0]
+      }_complaint.pdf`;
       pdf.save(docName);
     } catch (error) {
       console.error("Error generating PDF:", error);
@@ -764,6 +781,7 @@ const LegalComplaintDocs = () => {
                 <Editor
                   editorState={editorState}
                   onEditorStateChange={handleEditorStateChange}
+                  blockStyleFn={blockStyleFn}
                   editorStyle={{ fontSize: "16px" }}
                   onFocus={(event) => event.preventDefault()}
                   wrapperClassName="demo-wrapper"
@@ -836,7 +854,7 @@ const LegalComplaintDocs = () => {
                     },
                   }}
                   localization={{
-                    locale: "ko",
+                    locale: navigator.language,
                   }}
                 />
               </div>
@@ -870,7 +888,7 @@ const LegalComplaintDocs = () => {
                 color="info"
                 onClick={saveAsPDF}
                 className="mx-2"
-                disabled={messageIndexRef.current < 14}
+                // disabled={messageIndexRef.current < 14}
                 style={{ color: "white" }}
               >
                 Download
