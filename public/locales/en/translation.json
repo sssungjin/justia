@@ -1,0 +1,32 @@
+{
+  "category": "Category",
+  "prostitutionFraud": "Prostitution Fraud",
+  "secondHandFraud": "Second-hand Transaction Fraud",
+  "other": "Other",
+  "welcomeMessage": "Welcome to Legal Justia. Please select a complaint category.",
+  "complainant": "Complainant",
+  "complaint": "Complaint",
+  "accusedStatus": "Accused Status",
+  "complainantStatus": "Complainant Status",
+  "crimeDateTime": "Date and Time of Crime",
+  "crimeLocation": "Location of Crime",
+  "creationDate": "Creation Date: {{date}}",
+  "complaintContent": "Complaint Content",
+  "questions": {
+    "0": "",
+    "1": "Please tell us about the accused's occupation or status",
+    "2": "Please tell us about your status as well",
+    "3": "How did you first come to know the accused?",
+    "4": "When did the incident occur?",
+    "5": "Where did the incident occur?",
+    "6": "How did you decide to receive the service and make payment?",
+    "7": "What lies did the accused tell you to make you deposit money?",
+    "8": "How did you arrange the funds?",
+    "9": "How did you dispose of the property?",
+    "10": "What made you realize that the accused had been lying?",
+    "11": "Are there any other damages?",
+    "12": "What is your motivation for filing this complaint?",
+    "13": "Are you pursuing any civil or criminal proceedings related to this case?",
+    "14": "I will prepare the complaint for you. Please type 'end' when you're ready to receive it."
+  }
+}
