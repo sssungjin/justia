@@ -28,5 +28,6 @@
     "12": "What is your motivation for filing this complaint?",
     "13": "Are you pursuing any civil or criminal proceedings related to this case?",
     "14": "I will prepare the complaint for you. Please type 'end' when you're ready to receive it."
-  }
+  },
+  "generatingComplaint": "Generating complaint..."
 }
