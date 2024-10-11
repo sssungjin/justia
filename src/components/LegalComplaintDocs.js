@@ -456,11 +456,6 @@ const LegalComplaintDocs = ({ onLogout, currentLanguage, changeLanguage }) => {
     sendWebSocketMessage(selectedCategory, 0);
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
-  };
-
   useEffect(() => {
     if (chatAreaRef.current) {
       chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
