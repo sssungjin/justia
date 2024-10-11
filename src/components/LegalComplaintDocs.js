@@ -37,8 +37,9 @@ import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import axios from "axios";
 import { useTranslation } from "react-i18next";
+import justiaLogo from "../styles/images/justia_logo.png";
 
-const LegalComplaintDocs = () => {
+const LegalComplaintDocs = ({ onLogout, currentLanguage, changeLanguage }) => {
   const { t } = useTranslation();
 
   const [messages, setMessages] = useState([]);
@@ -73,6 +74,7 @@ const LegalComplaintDocs = () => {
   const [signature, setSignature] = useState(null);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isGeneratingComplaint, setIsGeneratingComplaint] = useState(false);
   const editorRef = useRef(null);
 
   const prev_actions = [
@@ -228,6 +230,7 @@ const LegalComplaintDocs = () => {
 
       if (talk.action === "종료") {
         console.log("대화가 종료되었습니다.");
+        setIsGeneratingComplaint(false);
       } else if (currentIndex === 14 && talk.msg) {
         setMessages((prevMessages) => [
           ...prevMessages,
@@ -238,6 +241,7 @@ const LegalComplaintDocs = () => {
           updateEditorWithComplaintContent(talk.msg, prevState);
           return prevState;
         });
+        setIsGeneratingComplaint(false);
       } else if (currentIndex < questions.length) {
         const newIndex = currentIndex + 1;
         messageIndexRef.current = newIndex;
@@ -253,6 +257,7 @@ const LegalComplaintDocs = () => {
       console.error("Error parsing message:", e);
       setIsWaitingForResponse(false);
       setIsLoading(false);
+      setIsGeneratingComplaint(false);
     }
   };
 
@@ -379,9 +384,9 @@ const LegalComplaintDocs = () => {
       id: userInfo ? userInfo.name : "unknown",
       index: currentIndex.toString(),
       reply: message,
-      locale: navigator.language,
+      locale: currentLanguage, // 여기서 currentLanguage를 사용합니다.
     };
-    console.log("navigator.language: " + navigator.language);
+    console.log("Current language: " + currentLanguage);
 
     console.log("sendWebSocketMessage:", talk);
 
@@ -389,6 +394,9 @@ const LegalComplaintDocs = () => {
       webSocket.send(JSON.stringify(talk));
       setIsWaitingForResponse(true);
       setIsLoading(true);
+      if (currentIndex === 14) {
+        setIsGeneratingComplaint(true);
+      }
     } else {
       console.error("WebSocket is not connected");
     }
@@ -649,7 +657,9 @@ const LegalComplaintDocs = () => {
         <Header
           userName={userInfo.name}
           userEmail={userInfo.email}
-          onLogout={handleLogout}
+          onLogout={onLogout}
+          changeLanguage={changeLanguage}
+          currentLanguage={currentLanguage}
         />
       )}
       <Row className="flex-grow-1">
@@ -708,9 +718,19 @@ const LegalComplaintDocs = () => {
                     )}
                   </div>
                 ))}
+                {isGeneratingComplaint && (
+                  <div className="text-center">
+                    <img
+                      src={justiaLogo}
+                      alt="Justia Logo"
+                      style={{ width: "250px", height: "auto" }}
+                    />
+                    <p>{t("generatingComplaint")}</p>
+                  </div>
+                )}
                 {isLoading && (
                   <div className="text-center">
-                    <Spinner color="primary" />
+                    <Spinner color="primary" children={""} />
                   </div>
                 )}
               </div>
