@@ -686,7 +686,7 @@ const LegalComplaintDocs = () => {
                   caret
                   className="w-80 text-left d-flex justify-content-between align-items-center custom-dropdown-toggle"
                 >
-                  {category || "카테고리 선택"} <ChevronDown size={20} />
+                  {category || "Category"} <ChevronDown size={20} />
                 </DropdownToggle>
                 <DropdownMenu className="w-80">
                   <DropdownItem
