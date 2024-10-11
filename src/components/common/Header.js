@@ -1,15 +1,14 @@
 import React from "react";
 import { Navbar, Nav, NavItem, Button } from "reactstrap";
-import { useTranslation } from "react-i18next";
 import justiaLogo from "../../styles/images/justia_text.png";
 
-const Header = ({ userName, userEmail, onLogout }) => {
-  const { i18n } = useTranslation();
-
-  const changeLanguage = (lng) => {
-    i18n.changeLanguage(lng);
-  };
-
+const Header = ({
+  userName,
+  userEmail,
+  onLogout,
+  changeLanguage,
+  currentLanguage,
+}) => {
   return (
     <Navbar color="light" light expand="md" className="mt-2 px-2">
       <div className="container-fluid d-flex justify-content-between align-items-center">
@@ -25,14 +24,18 @@ const Header = ({ userName, userEmail, onLogout }) => {
           <Button
             color="link"
             onClick={() => changeLanguage("ko")}
-            className="mx-2"
+            className={`mx-2 ${
+              currentLanguage === "ko" ? "font-weight-bold" : ""
+            }`}
           >
             한국어
           </Button>
           <Button
             color="link"
             onClick={() => changeLanguage("en")}
-            className="mx-2"
+            className={`mx-2 ${
+              currentLanguage === "en" ? "font-weight-bold" : ""
+            }`}
           >
             English
           </Button>
