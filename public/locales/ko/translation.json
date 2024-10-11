@@ -29,5 +29,13 @@
     "13": "사건과 관련하여 민형사를 진행하고 있습니까?",
     "14": "고소장을 작성해 드리겠습니다. 받을 준비가 되었다면 '종료'라고 입력해주세요."
   },
-  "generatingComplaint": "고소장을 생성 중..."
+  "generatingComplaint": "고소장을 생성 중...",
+  "loginPage": {
+    "title": "고소장 작성하기",
+    "facebookLoginAlt": "페이스북으로 로그인"
+  },
+  "loginAlerts": {
+    "notAuthorized": "앱에 로그인해야 이용가능한 기능입니다.",
+    "notLoggedIn": "페이스북에 로그인해야 이용가능한 기능입니다."
+  }
 }

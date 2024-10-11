@@ -29,5 +29,13 @@
     "13": "Are you pursuing any civil or criminal proceedings related to this case?",
     "14": "I will prepare the complaint for you. Please type 'end' when you're ready to receive it."
   },
-  "generatingComplaint": "Generating complaint..."
+  "generatingComplaint": "Generating complaint...",
+  "loginPage": {
+    "title": "Generate a Complaint",
+    "facebookLoginAlt": "Log in with Facebook"
+  },
+  "loginAlerts": {
+    "notAuthorized": "You must log in to use this feature.",
+    "notLoggedIn": "You must log in with Facebook to use this feature."
+  }
 }
