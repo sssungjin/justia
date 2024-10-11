@@ -11,6 +11,7 @@ import {
   DropdownToggle,
   DropdownMenu,
   DropdownItem,
+  Spinner,
 } from "reactstrap";
 import { ChevronDown, Upload } from "lucide-react";
 import { Editor } from "react-draft-wysiwyg";
@@ -24,6 +25,7 @@ import {
   ContentBlock,
   genKey,
 } from "draft-js";
+import { Map } from "immutable";
 import draftToHtml from "draftjs-to-html";
 import "react-draft-wysiwyg/dist/react-draft-wysiwyg.css";
 import SignatureModal from "./modal/SignatureModal";
@@ -45,7 +47,7 @@ const LegalComplaintDocs = () => {
   });
 
   const [webSocket, setWebSocket] = useState(null);
-  const [category, setCategory] = useState("성매매 피해 사기");
+  const [category, setCategory] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
@@ -60,7 +62,6 @@ const LegalComplaintDocs = () => {
   const { logout } = useAuth();
   const navigate = useNavigate();
 
-  //const [messageIndex, setMessageIndex] = useState(0);
   const messageIndexRef = useRef(0);
 
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
@@ -68,6 +69,8 @@ const LegalComplaintDocs = () => {
   const [editorContent, setEditorContent] = useState("");
 
   const [signature, setSignature] = useState(null);
+
+  const [isLoading, setIsLoading] = useState(false);
 
   const prev_actions = [
     "범죄 수법",
@@ -116,6 +119,13 @@ const LegalComplaintDocs = () => {
 
     newWebSocket.onopen = () => {
       console.log("WebSocket connected");
+      setMessages([
+        {
+          type: "ai",
+          content:
+            "어서오세요 Legal Justia 입니다. 고소장 카테고리를 선택해주세요.",
+        },
+      ]);
     };
 
     newWebSocket.onmessage = (event) => {
@@ -141,7 +151,7 @@ const LegalComplaintDocs = () => {
 
   const formatDate = (date) => {
     const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0"); // 월은 0부터 시작하므로 +1
+    const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
     return `${year}/${month}/${day}`;
   };
@@ -152,6 +162,11 @@ const LegalComplaintDocs = () => {
         key: genKey(),
         type: "unstyled",
         text: "고소장",
+        data: Map({
+          textAlign: "center",
+          fontSize: "24px",
+          fontWeight: "bold",
+        }),
       }),
       new ContentBlock({
         key: genKey(),
@@ -161,32 +176,22 @@ const LegalComplaintDocs = () => {
       new ContentBlock({
         key: genKey(),
         type: "unstyled",
-        text: "고소인",
+        text: "고소인 신분:",
       }),
       new ContentBlock({
         key: genKey(),
         type: "unstyled",
-        text: "신분:",
+        text: "피고소인 신분:",
       }),
       new ContentBlock({
         key: genKey(),
         type: "unstyled",
-        text: "피고소인",
+        text: "범죄 발생 일시:",
       }),
       new ContentBlock({
         key: genKey(),
         type: "unstyled",
-        text: "신분:",
-      }),
-      new ContentBlock({
-        key: genKey(),
-        type: "unstyled",
-        text: "시간:",
-      }),
-      new ContentBlock({
-        key: genKey(),
-        type: "unstyled",
-        text: "장소:",
+        text: "범죄 발생 장소:",
       }),
       new ContentBlock({
         key: genKey(),
@@ -200,12 +205,10 @@ const LegalComplaintDocs = () => {
     setEditorState(newEditorState);
 
     console.log("Initial editor content:");
-    newEditorState
-      .getCurrentContent()
-      .getBlocksAsArray()
-      .forEach((block, i) => {
-        console.log(`Block ${i}: "${block.getText()}"`); // 여기서 초기 블록 내용을 확인합니다.
-      });
+    newEditorState.getCurrentContent().getBlocksAsArray();
+    // .forEach((block, i) => {
+    //   console.log(`Block ${i}: "${block.getText()}"`);
+    // });
   }, []);
 
   const handleIncomingMessage = (data) => {
@@ -229,10 +232,9 @@ const LegalComplaintDocs = () => {
           { type: "ai", content: talk.msg },
         ]);
 
-        // 에디터 업데이트 - AI의 메시지를 고소 내용 뒤에 추가
         setEditorState((prevState) => {
-          updateEditorWithComplaintContent(talk.msg, prevState); // 이전 상태를 사용하여 업데이트합니다.
-          return prevState; // 이전 상태를 그대로 반환합니다.
+          updateEditorWithComplaintContent(talk.msg, prevState);
+          return prevState;
         });
       } else if (currentIndex < questions.length) {
         const newIndex = currentIndex + 1;
@@ -244,9 +246,11 @@ const LegalComplaintDocs = () => {
       }
 
       setIsWaitingForResponse(false);
+      setIsLoading(false);
     } catch (e) {
       console.error("Error parsing message:", e);
       setIsWaitingForResponse(false);
+      setIsLoading(false);
     }
   };
 
@@ -258,7 +262,12 @@ const LegalComplaintDocs = () => {
     }
 
     const contentState = editorState.getCurrentContent();
-    const searchTexts = ["피고소인", "고소인", "시간", "장소"];
+    const searchTexts = [
+      "피고소인 신분:",
+      "고소인 신분:",
+      "범죄 발생 일시:",
+      "범죄 발생 장소:",
+    ];
 
     const searchTextIndex = index === 5 ? 3 : index === 4 ? 2 : index - 1;
     const searchText = searchTexts[searchTextIndex];
@@ -275,36 +284,8 @@ const LegalComplaintDocs = () => {
       const block = blocks[i];
       const text = block.getText();
       if (text.trim() === searchText) {
-        const nextBlock = blocks[i + 1];
-        if (nextBlock && nextBlock.getText().startsWith("신분:")) {
-          const blockKey = nextBlock.getKey();
-          const start = "신분:".length;
-          const end = nextBlock.getLength();
-          const selection = SelectionState.createEmpty(blockKey).merge({
-            anchorOffset: start,
-            focusOffset: end,
-          });
-
-          const newContent = Modifier.replaceText(
-            contentState,
-            selection,
-            ` ${answer}`
-          );
-
-          const newEditorState = EditorState.push(
-            editorState,
-            newContent,
-            "insert-characters"
-          );
-          setEditorState(newEditorState);
-          console.log(
-            `Updated editor with answer: ${answer} at index: ${index}`
-          );
-          return;
-        }
-      } else if (text.startsWith(searchText)) {
         const blockKey = block.getKey();
-        const start = text.indexOf(":") + 1;
+        const start = text.length;
         const end = text.length;
         const selection = SelectionState.createEmpty(blockKey).merge({
           anchorOffset: start,
@@ -347,7 +328,6 @@ const LegalComplaintDocs = () => {
         );
       });
 
-      // "고소 내용:" 블록 찾기
       const complaintBlockIndex = blocks.findIndex(
         (block) => block.getText().trim() === "고소 내용:"
       );
@@ -356,7 +336,6 @@ const LegalComplaintDocs = () => {
         const complaintBlock = blocks[complaintBlockIndex];
         const blockKey = complaintBlock.getKey();
 
-        // "고소 내용:" 블록 다음에 새 블록 추가
         const selection = SelectionState.createEmpty(blockKey).merge({
           anchorOffset: complaintBlock.getLength(),
           focusOffset: complaintBlock.getLength(),
@@ -378,7 +357,6 @@ const LegalComplaintDocs = () => {
         setEditorState(newEditorState);
         console.log("Updated editor with complaint content");
 
-        // 업데이트된 내용 로그 출력
         const updatedBlocks = newEditorState
           .getCurrentContent()
           .getBlocksAsArray();
@@ -404,11 +382,14 @@ const LegalComplaintDocs = () => {
       reply: message,
       locale: navigator.language,
     };
+    console.log("navigator.language: " + navigator.language);
+
+    console.log("sendWebSocketMessage:", talk);
 
     if (webSocket && webSocket.readyState === WebSocket.OPEN) {
       webSocket.send(JSON.stringify(talk));
-      console.log("Sent message:", talk);
       setIsWaitingForResponse(true);
+      setIsLoading(true);
     } else {
       console.error("WebSocket is not connected");
     }
@@ -421,14 +402,11 @@ const LegalComplaintDocs = () => {
     const newMessage = { type: "user", content: inputMessage };
     setMessages((prevMessages) => [...prevMessages, newMessage]);
 
-    // 사용자의 답변을 에디터에 즉시 반영 (인덱스 1, 2, 4, 5에 대해서만)
     if ([1, 2, 4, 5].includes(currentIndex)) {
-      console.log(`Attempting to update editor for index: ${currentIndex}`);
       updateEditorWithAnswer(currentIndex, inputMessage.trim());
     }
 
     if (currentIndex === 14) {
-      // 13번 인덱스 이후 사용자 입력 시 14번 인덱스로 전환
       messageIndexRef.current = 14;
       sendWebSocketMessage(inputMessage, 14);
     } else {
@@ -442,9 +420,9 @@ const LegalComplaintDocs = () => {
     if (messages.length > 0 && messages[messages.length - 1].type === "user") {
       const lastUserMessage = messages[messages.length - 1].content;
       if ([1, 2, 4, 5].includes(messageIndexRef.current)) {
-        console.log(
-          `Attempting to update editor for index: ${messageIndexRef.current} from useEffect`
-        );
+        // console.log(
+        //   `Attempting to update editor for index: ${messageIndexRef.current} from useEffect`
+        // );
         updateEditorWithAnswer(messageIndexRef.current, lastUserMessage);
       }
     }
@@ -459,7 +437,14 @@ const LegalComplaintDocs = () => {
 
   const handleCategorySelect = (selectedCategory) => {
     setCategory(selectedCategory);
-    setMessages([{ type: "user", content: `${selectedCategory}` }]);
+    setMessages([
+      {
+        type: "ai",
+        content:
+          "어서오세요 Legal Justia 입니다. 고소장 카테고리를 선택해주세요.",
+      },
+      { type: "user", content: `${selectedCategory}` },
+    ]);
     messageIndexRef.current = 0;
     sendWebSocketMessage(selectedCategory, 0);
   };
@@ -534,25 +519,21 @@ const LegalComplaintDocs = () => {
 
       console.log("Sending data:", jsonData);
 
-      const response = await axios.post("/webchat/email", jsonData, {
+      // 비동기로 처리하고 바로 모달을 닫습니다.
+      axios.post("/webchat/email", jsonData, {
         headers: {
           "Content-Type": "application/json",
         },
       });
 
-      console.log("Response:", response);
-
-      if (response.status === 200) {
-        alert("Document shared successfully!");
-        setUploadedFiles([]);
-      } else {
-        throw new Error("Failed to share document");
-      }
+      setIsShareModalOpen(false);
+      // alert(
+      //   "문서 공유 요청이 전송되었습니다. 백그라운드에서 처리될 예정입니다."
+      // );
     } catch (error) {
       console.error("Error sharing document:", error);
       alert("Failed to share document. Please try again.");
     }
-    setIsShareModalOpen(false);
   };
 
   const removeFile = (index) => {
@@ -561,13 +542,8 @@ const LegalComplaintDocs = () => {
 
   const addSignatureToEditor = useCallback(
     (signatureDataURL) => {
-      // Move the cursor to the end of the editor
       let newEditorState = EditorState.moveFocusToEnd(editorState);
-
-      // Get the updated content state
       const contentState = newEditorState.getCurrentContent();
-
-      // Create the image entity
       const contentStateWithEntity = contentState.createEntity(
         "IMAGE",
         "IMMUTABLE",
@@ -579,20 +555,14 @@ const LegalComplaintDocs = () => {
         }
       );
       const entityKey = contentStateWithEntity.getLastCreatedEntityKey();
-
-      // Get the last block
       const blockMap = contentStateWithEntity.getBlockMap();
       const lastBlock = blockMap.last();
       const lastBlockKey = lastBlock.getKey();
       const length = lastBlock.getLength();
-
-      // Create a selection at the end of the last block
       const selection = SelectionState.createEmpty(lastBlockKey).merge({
         anchorOffset: length,
         focusOffset: length,
       });
-
-      // Insert the atomic block with the image
       const finalEditorState = AtomicBlockUtils.insertAtomicBlock(
         EditorState.acceptSelection(newEditorState, selection),
         entityKey,
@@ -615,11 +585,10 @@ const LegalComplaintDocs = () => {
 
     const content = draftToHtml(convertToRaw(editorState.getCurrentContent()));
 
-    // Create a temporary div to render the HTML content
     const tempDiv = document.createElement("div");
     tempDiv.innerHTML = content;
-    tempDiv.style.fontSize = "16px"; // Increase base font size
-    tempDiv.style.width = "793px"; // A4 width in pixels at 96 DPI
+    tempDiv.style.fontSize = "16px";
+    tempDiv.style.width = "793px";
     tempDiv.style.margin = "0";
     tempDiv.style.padding = "20px";
     document.body.appendChild(tempDiv);
@@ -634,7 +603,7 @@ const LegalComplaintDocs = () => {
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF({
         orientation: "portrait",
-        unit: "pt", // Use points for more precise sizing
+        unit: "pt",
         format: "a4",
       });
 
@@ -644,7 +613,6 @@ const LegalComplaintDocs = () => {
 
       pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
 
-      // If content exceeds one page, add more pages
       if (pdfHeight > pdf.internal.pageSize.getHeight()) {
         let remainingHeight = pdfHeight;
         let position = -pdf.internal.pageSize.getHeight();
@@ -657,7 +625,7 @@ const LegalComplaintDocs = () => {
       }
 
       const docName =
-        userInfo.name +
+        userInfo.id +
         "_" +
         new Date().toISOString().split("T")[0] +
         "_complaint.pdf";
@@ -665,7 +633,6 @@ const LegalComplaintDocs = () => {
     } catch (error) {
       console.error("Error generating PDF:", error);
     } finally {
-      // Clean up: remove the temporary div
       document.body.removeChild(tempDiv);
     }
   };
@@ -692,7 +659,7 @@ const LegalComplaintDocs = () => {
                   caret
                   className="w-80 text-left d-flex justify-content-between align-items-center custom-dropdown-toggle"
                 >
-                  {category} <ChevronDown size={20} />
+                  {category || "카테고리 선택"} <ChevronDown size={20} />
                 </DropdownToggle>
                 <DropdownMenu className="w-80">
                   <DropdownItem
@@ -733,11 +700,16 @@ const LegalComplaintDocs = () => {
                     )}
                   </div>
                 ))}
+                {isLoading && (
+                  <div className="text-center">
+                    <Spinner color="primary" />
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          <InputGroup className="mb-1" disabled={messageIndexRef.current === 0}>
+          <InputGroup className="mb-1" disabled={!category}>
             <Input
               type="text"
               value={inputMessage}
@@ -745,13 +717,13 @@ const LegalComplaintDocs = () => {
               onKeyPress={handleKeyPress}
               placeholder="Type your message..."
               style={{ fontSize: "1.1rem" }}
-              disabled={messageIndexRef.current === 0}
+              disabled={!category}
             />
             <Button
               color="primary"
               onClick={handleSendMessage}
               style={{ marginLeft: "5px" }}
-              disabled={messageIndexRef.current === 0}
+              disabled={!category}
             >
               Send
             </Button>
@@ -775,7 +747,7 @@ const LegalComplaintDocs = () => {
         <Col md="6" className="d-flex flex-column p-3">
           <div className="editor-container flex-grow-1 mb-1 mt-2">
             <CardTitle tag="h2" className="text-center mt-3">
-              Complaint
+              고소장
             </CardTitle>
             <div className="editor-wrapper">
               <div ref={editorRef}>
@@ -865,7 +837,6 @@ const LegalComplaintDocs = () => {
                 onClick={() => setIsSignatureModalOpen(true)}
                 className="mx-2"
                 disabled={messageIndexRef.current < 14}
-                //disabled={messageIndex < 14}
               >
                 Sign
               </Button>
@@ -874,7 +845,6 @@ const LegalComplaintDocs = () => {
                 onClick={() => setIsPaymentModalOpen(true)}
                 className="mx-2"
                 disabled={messageIndexRef.current < 14}
-                //disabled={messageIndex < 14}
               >
                 Payment
               </Button>
@@ -883,7 +853,6 @@ const LegalComplaintDocs = () => {
                 onClick={() => setIsShareModalOpen(true)}
                 className="mx-2"
                 disabled={messageIndexRef.current < 14}
-                // disabled={messageIndex < 14}
               >
                 Share
               </Button>
@@ -892,9 +861,9 @@ const LegalComplaintDocs = () => {
                 onClick={saveAsPDF}
                 className="mx-2"
                 disabled={messageIndexRef.current < 14}
-                // disabled={messageIndex < 14}
+                style={{ color: "white" }}
               >
-                Save as PDF
+                Download
               </Button>
             </div>
           </div>
