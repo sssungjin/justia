@@ -477,6 +477,11 @@ const LegalComplaintDocs = () => {
 
   const handleFileUpload = (event) => {
     const files = Array.from(event.target.files);
+
+    if (files.length === 0) {
+      return;
+    }
+
     const filePromises = files.map(
       (file) =>
         new Promise((resolve, reject) => {
@@ -492,13 +497,18 @@ const LegalComplaintDocs = () => {
     Promise.all(filePromises)
       .then((newFiles) => {
         setUploadedFiles((prevFiles) => [...prevFiles, ...newFiles]);
-        setMessages((prevMessages) => [
-          ...prevMessages,
-          {
-            type: "user",
-            content: `Files uploaded: ${files.map((f) => f.name).join(", ")}`,
-          },
-        ]);
+
+        if (newFiles.length > 0) {
+          setMessages((prevMessages) => [
+            ...prevMessages,
+            {
+              type: "user",
+              content: `Files uploaded: ${newFiles
+                .map((f) => f.name)
+                .join(", ")}`,
+            },
+          ]);
+        }
       })
       .catch((error) => {
         console.error("Error reading files:", error);
