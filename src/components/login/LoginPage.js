@@ -38,7 +38,6 @@ const LoginPage = ({ onLogin }) => {
     window.FB.login(
       function (response) {
         if (response.status === "connected") {
-          console.log("Login successful", response);
           window.FB.api("/me", { fields: "name,email" }, function (userData) {
             const user = {
               id: response.authResponse.userID,
