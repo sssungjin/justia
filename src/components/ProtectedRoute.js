@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
+import { Spinner } from "reactstrap";
 
 export const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, checkAuthStatus } = useAuth();
@@ -13,7 +14,11 @@ export const ProtectedRoute = ({ children }) => {
   }, [checkAuthStatus]);
 
   if (isChecking) {
-    return <div>Loading...</div>; // 또는 로딩 스피너 컴포넌트
+    return (
+      <div>
+        <Spinner />
+      </div>
+    );
   }
 
   if (!isAuthenticated) {
