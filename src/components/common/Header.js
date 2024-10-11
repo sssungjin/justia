@@ -1,14 +1,18 @@
 import React from "react";
 import { Navbar, Nav, NavItem, Button } from "reactstrap";
 import justiaLogo from "../../styles/images/justia_text.png";
+import { useNavigate } from "react-router-dom";
+import useAuth from "../../hooks/useAuth";
 
-const Header = ({
-  userName,
-  userEmail,
-  onLogout,
-  changeLanguage,
-  currentLanguage,
-}) => {
+const Header = ({ userName, userEmail, changeLanguage, currentLanguage }) => {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login");
+  };
+
   return (
     <Navbar color="light" light expand="md" className="mt-2 px-2">
       <div className="container-fluid d-flex justify-content-between align-items-center">
@@ -28,7 +32,7 @@ const Header = ({
               currentLanguage === "ko" ? "font-weight-bold" : ""
             }`}
           >
-            한국어
+            Korean
           </Button>
           <Button
             color="link"
@@ -47,7 +51,7 @@ const Header = ({
             </span>
           </NavItem>
           <NavItem className="mr-2">
-            <Button color="secondary" onClick={onLogout}>
+            <Button color="secondary" onClick={handleLogout}>
               Logout
             </Button>
           </NavItem>
