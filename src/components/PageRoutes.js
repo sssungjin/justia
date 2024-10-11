@@ -5,7 +5,7 @@ import LoginPage from "./login/LoginPage";
 import { ProtectedRoute } from "./ProtectedRoute";
 import useAuth from "../hooks/useAuth";
 
-function PageRoutes() {
+function PageRoutes({ currentLanguage, changeLanguage }) {
   const { login, logout } = useAuth();
 
   return (
@@ -16,7 +16,11 @@ function PageRoutes() {
           path="/"
           element={
             <ProtectedRoute>
-              <LegalComplaintDocs onLogout={logout} />
+              <LegalComplaintDocs
+                onLogout={logout}
+                currentLanguage={currentLanguage}
+                changeLanguage={changeLanguage}
+              />
             </ProtectedRoute>
           }
         />
