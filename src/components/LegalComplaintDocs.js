@@ -31,15 +31,13 @@ import SignatureModal from "./modal/SignatureModal";
 import PaymentModal from "./modal/PaymentModal";
 import ShareModal from "./modal/ShareModal";
 import Header from "./common/Header";
-import { useNavigate } from "react-router-dom";
-import useAuth from "../hooks/useAuth";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import axios from "axios";
 import { useTranslation } from "react-i18next";
 import justiaLogo from "../styles/images/justia_logo.png";
 
-const LegalComplaintDocs = ({ onLogout, currentLanguage, changeLanguage }) => {
+const LegalComplaintDocs = ({ onLogout, currentLanguage }) => {
   const { t } = useTranslation();
 
   const [userInfo, setUserInfo] = useState(null);
@@ -97,37 +95,56 @@ const LegalComplaintDocs = ({ onLogout, currentLanguage, changeLanguage }) => {
       setUserInfo(JSON.parse(storedUserInfo));
     }
 
-    // WebSocket 연결
-    const wsUrl = `ws://localhost:8080/webchat/dial/null`;
-    const newWebSocket = new WebSocket(wsUrl);
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 3;
+    let reconnectTimeout;
 
-    newWebSocket.onopen = () => {
-      console.log("WebSocket connected");
-      setMessages([
-        {
-          type: "ai",
-          content: t("welcomeMessage"),
-        },
-      ]);
+    const connectWebSocket = () => {
+      const wsUrl = `wss://chat.justia.co.kr/webchat/dial/null`;
+      const newWebSocket = new WebSocket(wsUrl);
+
+      newWebSocket.onopen = () => {
+        console.log("WebSocket connected");
+        reconnectAttempts = 0;
+        setMessages([
+          {
+            type: "ai",
+            content: t("welcomeMessage"),
+          },
+        ]);
+      };
+
+      newWebSocket.onmessage = (event) => {
+        handleIncomingMessage(event.data);
+      };
+
+      newWebSocket.onclose = (event) => {
+        console.log("WebSocket disconnected", event);
+        if (reconnectAttempts < maxReconnectAttempts) {
+          reconnectTimeout = setTimeout(() => {
+            reconnectAttempts++;
+            connectWebSocket();
+          }, 5000);
+        } else {
+          alert(t("websocketDisconnected"));
+        }
+      };
+
+      newWebSocket.onerror = (error) => {
+        console.error("WebSocket error:", error);
+      };
+
+      setWebSocket(newWebSocket);
     };
 
-    newWebSocket.onmessage = (event) => {
-      handleIncomingMessage(event.data);
-    };
-
-    newWebSocket.onclose = () => {
-      console.log("WebSocket disconnected");
-    };
-
-    newWebSocket.onerror = (error) => {
-      console.error("WebSocket error:", error);
-    };
-
-    setWebSocket(newWebSocket);
+    connectWebSocket();
 
     return () => {
-      if (newWebSocket) {
-        newWebSocket.close();
+      if (webSocket) {
+        webSocket.close();
+      }
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
       }
     };
   }, []);
@@ -605,13 +622,7 @@ const LegalComplaintDocs = ({ onLogout, currentLanguage, changeLanguage }) => {
   return (
     <Container fluid className="vh-100 flex-column">
       {userInfo && (
-        <Header
-          userName={userInfo.name}
-          userEmail={userInfo.email}
-          onLogout={onLogout}
-          changeLanguage={changeLanguage}
-          currentLanguage={currentLanguage}
-        />
+        <Header userName={userInfo.name} userEmail={userInfo.email} />
       )}
       <Row className="flex-grow-1">
         <Col md="6" className="d-flex flex-column p-3">
