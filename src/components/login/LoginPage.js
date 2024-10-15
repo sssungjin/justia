@@ -1,10 +1,11 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { Button } from "reactstrap";
 import facebookLoginImage from "../../styles/images/facebooklogin.png";
 import justiaLogo from "../../styles/images/justia_logo.png";
 
-const LoginPage = ({ onLogin }) => {
+const LoginPage = ({ onLogin, changeLanguage, currentLanguage }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
@@ -15,7 +16,7 @@ const LoginPage = ({ onLogin }) => {
           appId: "8416889168371106",
           cookie: true,
           xfbml: true,
-          version: "v10.0",
+          version: "v20.0",
         });
         window.FB.AppEvents.logPageView();
       };
@@ -62,6 +63,7 @@ const LoginPage = ({ onLogin }) => {
     <div
       style={{
         display: "flex",
+        flexDirection: "column",
         justifyContent: "center",
         alignItems: "center",
         height: "100vh",
@@ -79,8 +81,33 @@ const LoginPage = ({ onLogin }) => {
           src={facebookLoginImage}
           alt={t("loginPage.facebookLoginAlt")}
           onClick={handleFacebookLogin}
-          style={{ cursor: "pointer", width: "200px", height: "auto" }}
+          style={{
+            cursor: "pointer",
+            width: "200px",
+            height: "auto",
+            marginBottom: "20px",
+          }}
         />
+      </div>
+      <div style={{ marginTop: "20px" }}>
+        <Button
+          color="link"
+          onClick={() => changeLanguage("ko")}
+          className={`mx-2 ${
+            currentLanguage === "ko" ? "font-weight-bold" : ""
+          }`}
+        >
+          Korean
+        </Button>
+        <Button
+          color="link"
+          onClick={() => changeLanguage("en")}
+          className={`mx-2 ${
+            currentLanguage === "en" ? "font-weight-bold" : ""
+          }`}
+        >
+          English
+        </Button>
       </div>
     </div>
   );
