@@ -37,7 +37,7 @@ import axios from "axios";
 import { useTranslation } from "react-i18next";
 import justiaLogo from "../styles/images/justia_logo.png";
 
-const LegalComplaintDocs = ({ onLogout, currentLanguage }) => {
+const LegalComplaintDocs = ({ currentLanguage }) => {
   const { t } = useTranslation();
 
   const [userInfo, setUserInfo] = useState(null);
