@@ -11,7 +11,16 @@ function PageRoutes({ currentLanguage, changeLanguage }) {
   return (
     <Router>
       <Routes>
-        <Route path="/login" element={<LoginPage onLogin={login} />} />
+        <Route
+          path="/login"
+          element={
+            <LoginPage
+              onLogin={login}
+              changeLanguage={changeLanguage}
+              currentLanguage={currentLanguage}
+            />
+          }
+        />
         <Route
           path="/"
           element={
