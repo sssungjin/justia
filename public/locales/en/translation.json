@@ -37,5 +37,6 @@
   "loginAlerts": {
     "notAuthorized": "You must log in to use this feature.",
     "notLoggedIn": "You must log in with Facebook to use this feature."
-  }
+  },
+  "websocketDisconnected": "The connection to the WebSocket server has been lost.\nPlease refresh the page to reconnect or restart the WebSocket server."
 }
