@@ -100,7 +100,11 @@ const LegalComplaintDocs = ({ currentLanguage }) => {
     let reconnectTimeout;
 
     const connectWebSocket = () => {
-      const wsUrl = `wss://chat.justia.co.kr/webchat/dial/null`;
+      // local
+      const wsUrl = `ws://localhost:8080/webchat/dial/null`;
+
+      // production ssl
+      //const wsUrl = `wss://chat.justia.co.kr/webchat/dial/null`;
       const newWebSocket = new WebSocket(wsUrl);
 
       newWebSocket.onopen = () => {
@@ -255,6 +259,8 @@ const LegalComplaintDocs = ({ currentLanguage }) => {
       setIsLoading(false);
       setIsGeneratingComplaint(false);
     }
+
+    console.log("Messages: " + messages);
   };
 
   const updateEditorWithAnswer = (index, answer) => {
@@ -307,17 +313,25 @@ const LegalComplaintDocs = ({ currentLanguage }) => {
 
   const updateEditorWithComplaintContent = useCallback(
     (content, currentEditorState) => {
+      // 중복된 내용이 추가되지 않도록 처리
+      const existingContent = currentEditorState.getCurrentContent().getPlainText();
+      if (existingContent.includes(content)) {
+        console.log("Content already exists, skipping update.");
+        return; // 이미 존재하는 내용이면 업데이트를 건너뜁니다.
+      }
+
+      let sentenceCount = 0;
+
+      const modifiedContent = content
+        .replace(/([^다]다\.\s?)/g, (match) => {
+          sentenceCount++;
+          return sentenceCount % 3 === 0 ? match + "\n" : match;
+        })
+        .replace("[판례]", "\n\n[판례]\n")
+        .replace("[처벌의사 표현]", "\n\n[처벌의사 표현]\n");
+
       let contentState = currentEditorState.getCurrentContent();
       let blocks = contentState.getBlocksAsArray();
-
-      console.log(
-        "Current editor content in updateEditorWithComplaintContent:"
-      );
-      blocks.forEach((block, i) => {
-        console.log(
-          `Block ${i}: "${block.getText()}" (Key: ${block.getKey()})`
-        );
-      });
 
       const complaintBlockIndex = blocks.findIndex(
         (block) => block.getText().trim() === t("complaintContent") + ":"
@@ -336,7 +350,7 @@ const LegalComplaintDocs = ({ currentLanguage }) => {
         newContentState = Modifier.insertText(
           newContentState,
           newContentState.getSelectionAfter(),
-          content
+          modifiedContent
         );
 
         const newEditorState = EditorState.push(
@@ -347,15 +361,11 @@ const LegalComplaintDocs = ({ currentLanguage }) => {
 
         setEditorState(newEditorState);
         console.log("Updated editor with complaint content");
-
-        const updatedBlocks = newEditorState
-          .getCurrentContent()
-          .getBlocksAsArray();
       } else {
         console.log("Error: '고소 내용:' block not found.");
       }
     },
-    []
+    [t]
   );
 
   const sendWebSocketMessage = (message, index = null) => {
@@ -365,7 +375,7 @@ const LegalComplaintDocs = ({ currentLanguage }) => {
       id: userInfo ? userInfo.name : "unknown",
       index: currentIndex.toString(),
       reply: message,
-      locale: currentLanguage, // 여기서 currentLanguage를 사용합니다.
+      locale: currentLanguage,
     };
     console.log("Current language: " + currentLanguage);
 
@@ -608,9 +618,8 @@ const LegalComplaintDocs = ({ currentLanguage }) => {
       }
 
       const emailPrefix = userInfo.email.split("@")[0];
-      const docName = `${emailPrefix}_${
-        new Date().toISOString().split("T")[0]
-      }_complaint.pdf`;
+      const docName = `${emailPrefix}_${new Date().toISOString().split("T")[0]
+        }_complaint.pdf`;
       pdf.save(docName);
     } catch (error) {
       console.error("Error generating PDF:", error);
@@ -661,9 +670,8 @@ const LegalComplaintDocs = ({ currentLanguage }) => {
                 {messages.map((msg, index) => (
                   <div
                     key={index}
-                    className={`mb-2 ${
-                      msg.type === "user" ? "text-right" : "text-left"
-                    }`}
+                    className={`mb-2 ${msg.type === "user" ? "text-right" : "text-left"
+                      }`}
                   >
                     {msg.type === "user" ? (
                       <div className="user-bubble">
@@ -753,7 +761,6 @@ const LegalComplaintDocs = ({ currentLanguage }) => {
                   toolbar={{
                     options: [
                       "inline",
-                      "blockType",
                       "fontSize",
                       "fontFamily",
                       "list",
@@ -771,21 +778,6 @@ const LegalComplaintDocs = ({ currentLanguage }) => {
                         "strikethrough",
                         "monospace",
                       ],
-                    },
-                    blockType: {
-                      inDropdown: true,
-                      options: [
-                        "Normal",
-                        "H1",
-                        "H2",
-                        "H3",
-                        "H4",
-                        "H5",
-                        "H6",
-                        "Blockquote",
-                        "Code",
-                      ],
-                      className: "toolbar-block",
                     },
                     fontSize: {
                       options: [
