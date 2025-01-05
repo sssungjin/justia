@@ -322,13 +322,30 @@ const LegalComplaintDocs = ({ currentLanguage }) => {
 
       let sentenceCount = 0;
 
-      const modifiedContent = content
-        .replace(/([^다]다\.\s?)/g, (match) => {
-          sentenceCount++;
-          return sentenceCount % 3 === 0 ? match + "\n" : match;
-        })
-        .replace("[판례]", "\n\n[판례]\n")
-        .replace("[처벌의사 표현]", "\n\n[처벌의사 표현]\n");
+      let modifiedContent; // 변수를 미리 선언
+
+      console.log("Current Language:", currentLanguage); // 현재 언어 확인
+      console.log("Original Content:", content); // 원본 내용 확인
+
+      if (currentLanguage === "ko") {
+        modifiedContent = content
+          .replace(/([^다]다\.\s?)/g, (match) => {
+            sentenceCount++;
+            return sentenceCount % 3 === 0 ? match + "\n" : match;
+          })
+          .replace("[판례]", "\n\n[판례]\n")
+          .replace("[처벌의사 표현]", "\n\n[처벌의사 표현]\n");
+      } else {
+        modifiedContent = content
+          .replace(/([^다]다\.\s?)/g, (match) => {
+            sentenceCount++;
+            return sentenceCount % 3 === 0 ? match + "\n" : match;
+          })
+          .replace("[Case law]", "\n\n[Case law]\n")
+          .replace("[Expression of intent to punish]", "\n\n[Expression of intent to punish]\n");
+      }
+
+      console.log("Modified Content:", modifiedContent); // 수정된 내용 확인
 
       let contentState = currentEditorState.getCurrentContent();
       let blocks = contentState.getBlocksAsArray();
@@ -350,7 +367,7 @@ const LegalComplaintDocs = ({ currentLanguage }) => {
         newContentState = Modifier.insertText(
           newContentState,
           newContentState.getSelectionAfter(),
-          modifiedContent
+          modifiedContent // modifiedContent를 사용
         );
 
         const newEditorState = EditorState.push(
@@ -365,7 +382,7 @@ const LegalComplaintDocs = ({ currentLanguage }) => {
         console.log("Error: '고소 내용:' block not found.");
       }
     },
-    [t]
+    [t, currentLanguage] // currentLanguage를 의존성 배열에 추가
   );
 
   const sendWebSocketMessage = (message, index = null) => {
