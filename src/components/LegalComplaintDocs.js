@@ -342,7 +342,8 @@ const LegalComplaintDocs = ({ currentLanguage }) => {
             return sentenceCount % 3 === 0 ? match + "\n" : match;
           })
           .replace("[Case law]", "\n\n[Case law]\n")
-          .replace("[Expression of intent to punish]", "\n\n[Expression of intent to punish]\n");
+          .replace("[Expression of intent to punish]", "\n\n[Expression of intent to punish]\n")
+          .replace("&#39;", "'");
       }
 
       console.log("Modified Content:", modifiedContent); // 수정된 내용 확인
